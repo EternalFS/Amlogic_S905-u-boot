@@ -1,10 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * composite.c - infrastructure for Composite USB Gadgets
  *
  * Copyright (C) 2006-2008 David Brownell
- * U-boot porting: Lukasz Majewski <l.majewski@samsung.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
+ * U-Boot porting: Lukasz Majewski <l.majewski@samsung.com>
  */
 #undef DEBUG
 
@@ -165,7 +164,7 @@ static int config_buf(struct usb_configuration *config,
 	int				len = USB_BUFSIZ - USB_DT_CONFIG_SIZE;
 	void				*next = buf + USB_DT_CONFIG_SIZE;
 	struct usb_descriptor_header    **descriptors;
-	struct usb_config_descriptor	*c = buf;
+	struct usb_config_descriptor	*c;
 	int				status;
 	struct usb_function		*f;
 
@@ -283,7 +282,7 @@ static void device_qual(struct usb_composite_dev *cdev)
 	qual->bDeviceSubClass = cdev->desc.bDeviceSubClass;
 	qual->bDeviceProtocol = cdev->desc.bDeviceProtocol;
 	/* ASSUME same EP0 fifo size at both speeds */
-	qual->bMaxPacketSize0 = cdev->desc.bMaxPacketSize0;
+	qual->bMaxPacketSize0 = cdev->gadget->ep0->maxpacket;
 	qual->bNumConfigurations = count_configs(cdev, USB_DT_DEVICE_QUALIFIER);
 	qual->bRESERVED = 0;
 }
@@ -379,7 +378,7 @@ static int set_config(struct usb_composite_dev *cdev,
 			ep = (struct usb_endpoint_descriptor *)*descriptors;
 			addr = ((ep->bEndpointAddress & 0x80) >> 3)
 			     |	(ep->bEndpointAddress & 0x0f);
-			__set_bit(addr, f->endpoints);
+			generic_set_bit(addr, f->endpoints);
 		}
 
 		result = f->set_alt(f, tmp, 0);
@@ -736,6 +735,21 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		case USB_DT_DEVICE:
 			cdev->desc.bNumConfigurations =
 				count_configs(cdev, USB_DT_DEVICE);
+
+			/*
+			 * If the speed is Super speed, then the supported
+			 * max packet size is 512 and it should be sent as
+			 * exponent of 2. So, 9(2^9=512) should be filled in
+			 * bMaxPacketSize0. Also fill USB version as 3.0
+			 * if speed is Super speed.
+			 */
+			if (cdev->gadget->speed == USB_SPEED_SUPER) {
+				cdev->desc.bMaxPacketSize0 = 9;
+				cdev->desc.bcdUSB = cpu_to_le16(0x0300);
+			} else {
+				cdev->desc.bMaxPacketSize0 =
+					cdev->gadget->ep0->maxpacket;
+			}
 			value = min(w_length, (u16) sizeof cdev->desc);
 			memcpy(req->buf, &cdev->desc, value);
 			break;
@@ -760,6 +774,14 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 					w_index, w_value & 0xff);
 			if (value >= 0)
 				value = min(w_length, (u16) value);
+			break;
+		case USB_DT_BOS:
+			/*
+			 * The USB compliance test (USB 2.0 Command Verifier)
+			 * issues this request. We should not run into the
+			 * default path here. But return for now until
+			 * the superspeed support is added.
+			 */
 			break;
 		default:
 			goto unknown;
@@ -828,6 +850,9 @@ unknown:
 			ctrl->bRequestType, ctrl->bRequest,
 			w_value, w_index, w_length);
 
+		if (!cdev->config)
+			goto done;
+
 		/*
 		 * functions always handle their interfaces and endpoints...
 		 * punt other recipients (other, WUSB, ...) to the current
@@ -872,7 +897,7 @@ unknown:
 			value = f->setup(f, ctrl);
 		else {
 			c = cdev->config;
-			if (c && c->setup)
+			if (c->setup)
 				value = c->setup(c, ctrl);
 		}
 
@@ -938,6 +963,7 @@ static void composite_unbind(struct usb_gadget *gadget)
 			debug("unbind config '%s'/%p\n", c->label, c);
 			c->unbind(c);
 		}
+		free(c);
 	}
 	if (composite->unbind)
 		composite->unbind(cdev);
@@ -1042,6 +1068,7 @@ static struct usb_gadget_driver composite_driver = {
 	.unbind         = composite_unbind,
 
 	.setup		= composite_setup,
+	.reset          = composite_disconnect,
 	.disconnect	= composite_disconnect,
 
 	.suspend        = composite_suspend,
@@ -1065,6 +1092,8 @@ static struct usb_gadget_driver composite_driver = {
  */
 int usb_composite_register(struct usb_composite_driver *driver)
 {
+	int res;
+
 	if (!driver || !driver->dev || !driver->bind || composite)
 		return -EINVAL;
 
@@ -1072,7 +1101,11 @@ int usb_composite_register(struct usb_composite_driver *driver)
 		driver->name = "composite";
 	composite = driver;
 
-	return usb_gadget_register_driver(&composite_driver);
+	res = usb_gadget_register_driver(&composite_driver);
+	if (res != 0)
+		composite = NULL;
+
+	return res;
 }
 
 /**

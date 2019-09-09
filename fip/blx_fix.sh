@@ -11,11 +11,11 @@
 
 #$7:name flag
 if [ "$7" = "bl30" ]; then
-	declare blx_bin_limit=41984
-	declare blx01_bin_limit=12288
+	declare blx_bin_limit=40960
+	declare blx01_bin_limit=13312
 elif [ "$7" = "bl2" ]; then
-	declare blx_bin_limit=41984
-	declare blx01_bin_limit=7168
+	declare blx_bin_limit=57344
+	declare blx01_bin_limit=4096
 else
 	echo "blx_fix name flag not supported!"
 	exit 1
