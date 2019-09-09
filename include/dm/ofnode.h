@@ -224,7 +224,7 @@ static inline int ofnode_read_s32(ofnode node, const char *propname,
  * @def:	default value to return if the property has no value
  * @return property value, or @def if not found
  */
-u32 ofnode_read_u32_default(ofnode ref, const char *propname, u32 def);
+int ofnode_read_u32_default(ofnode ref, const char *propname, u32 def);
 
 /**
  * ofnode_read_s32_default() - Read a 32-bit integer from a property
@@ -235,16 +235,6 @@ u32 ofnode_read_u32_default(ofnode ref, const char *propname, u32 def);
  * @return property value, or @def if not found
  */
 int ofnode_read_s32_default(ofnode node, const char *propname, s32 def);
-
-/**
- * ofnode_read_u64() - Read a 64-bit integer from a property
- *
- * @node:	valid node reference to read property from
- * @propname:	name of the property to read from
- * @outp:	place to put value (if found)
- * @return 0 if OK, -ve on error
- */
-int ofnode_read_u64(ofnode node, const char *propname, u64 *outp);
 
 /**
  * ofnode_read_u64_default() - Read a 64-bit integer from a property
@@ -333,7 +323,7 @@ ofnode ofnode_get_parent(ofnode node);
  * ofnode_get_name() - get the name of a node
  *
  * @node: valid node to look up
- * @return name of node
+ * @return name or node
  */
 const char *ofnode_get_name(ofnode node);
 
@@ -353,20 +343,6 @@ ofnode ofnode_get_by_phandle(uint phandle);
  * @return size of property if present, or -EINVAL if not
  */
 int ofnode_read_size(ofnode node, const char *propname);
-
-/**
- * ofnode_get_addr_size_index() - get an address/size from a node
- *				  based on index
- *
- * This reads the register address/size from a node based on index
- *
- * @node: node to read from
- * @index: Index of address to read (0 for first)
- * @size: Pointer to size of the address
- * @return address, or FDT_ADDR_T_NONE if not present or invalid
- */
-phys_addr_t ofnode_get_addr_size_index(ofnode node, int index,
-				       fdt_size_t *size);
 
 /**
  * ofnode_get_addr_index() - get an address from a node

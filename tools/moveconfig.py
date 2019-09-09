@@ -545,28 +545,6 @@ def confirm(options, prompt):
 
     return True
 
-def cleanup_empty_blocks(header_path, options):
-    """Clean up empty conditional blocks
-
-    Arguments:
-      header_path: path to the cleaned file.
-      options: option flags.
-    """
-    pattern = re.compile(r'^\s*#\s*if.*$\n^\s*#\s*endif.*$\n*', flags=re.M)
-    with open(header_path) as f:
-        data = f.read()
-
-    new_data = pattern.sub('\n', data)
-
-    show_diff(data.splitlines(True), new_data.splitlines(True), header_path,
-              options.color)
-
-    if options.dry_run:
-        return
-
-    with open(header_path, 'w') as f:
-        f.write(new_data)
-
 def cleanup_one_header(header_path, patterns, options):
     """Clean regex-matched lines away from a file.
 
@@ -648,9 +626,8 @@ def cleanup_headers(configs, options):
                 continue
             for filename in filenames:
                 if not fnmatch.fnmatch(filename, '*~'):
-                    header_path = os.path.join(dirpath, filename)
-                    cleanup_one_header(header_path, patterns, options)
-                    cleanup_empty_blocks(header_path, options)
+                    cleanup_one_header(os.path.join(dirpath, filename),
+                                       patterns, options)
 
 def cleanup_one_extra_option(defconfig_path, configs, options):
     """Delete config defines in CONFIG_SYS_EXTRA_OPTIONS in one defconfig file.

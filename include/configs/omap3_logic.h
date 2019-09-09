@@ -19,6 +19,8 @@
  * area in SRAM which starts at 0x40200000 and ends at 0x4020FFFF (64KB) in
  * order to allow for BCH8 to fit in.
  */
+#undef CONFIG_SPL_TEXT_BASE
+#define CONFIG_SPL_TEXT_BASE		0x40200000
 
 #define CONFIG_CMDLINE_TAG		/* enable passing of ATAGs */
 #define CONFIG_SETUP_MEMORY_TAGS
@@ -65,7 +67,7 @@
 	"mtdids=" CONFIG_MTDIDS_DEFAULT "\0"	\
 	"mtdparts=" CONFIG_MTDPARTS_DEFAULT "\0" \
 	"mmcdev=0\0" \
-	"finduuid=part uuid mmc ${mmcdev}:2 uuid\0" \
+	"mmcroot=/dev/mmcblk0p2 rw\0" \
 	"mmcrootfstype=ext4 rootwait\0" \
 	"nandroot=ubi0:rootfs rw ubi.mtd=fs noinitrd\0" \
 	"nandrootfstype=ubifs rootwait\0" \
@@ -104,8 +106,7 @@
 	"ramargs=setenv bootargs "\
 		"root=/dev/ram rw ramdisk_size=${ramdisksize}\0" \
 	"mmcargs=setenv bootargs "\
-		"root=PARTUUID=${uuid} " \
-		"rootfstype=${mmcrootfstype} rw\0" \
+		"root=${mmcroot} rootfstype=${mmcrootfstype}\0" \
 	"nandargs=setenv bootargs "\
 		"root=${nandroot} " \
 		"rootfstype=${nandrootfstype}\0" \
@@ -119,7 +120,6 @@
 	"loadfdt=mmc rescan; " \
 		"load mmc ${mmcdev} ${fdtaddr} ${fdtimage}\0" \
 	"mmcbootcommon=echo Booting with DT from mmc${mmcdev} ...; " \
-		"run finduuid; "\
 		"run mmcargs; " \
 		"run common_bootargs; " \
 		"run dump_bootargs; " \

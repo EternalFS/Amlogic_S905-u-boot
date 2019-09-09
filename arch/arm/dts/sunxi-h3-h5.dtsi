@@ -506,6 +506,8 @@
 			reset-names = "stmmaceth";
 			clocks = <&ccu CLK_BUS_EMAC>;
 			clock-names = "stmmaceth";
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "disabled";
 
 			mdio: mdio {

@@ -141,9 +141,7 @@ static void EFIAPI efi_reset_system_boottime(
 		do_reset(NULL, 0, 0, NULL);
 		break;
 	case EFI_RESET_SHUTDOWN:
-#ifdef CONFIG_CMD_POWEROFF
-		do_poweroff(NULL, 0, 0, NULL);
-#endif
+		/* We don't have anything to map this to */
 		break;
 	}
 
@@ -169,6 +167,7 @@ static efi_status_t EFIAPI efi_get_time_boottime(
 {
 #ifdef CONFIG_DM_RTC
 	efi_status_t ret = EFI_SUCCESS;
+	int r;
 	struct rtc_time tm;
 	struct udevice *dev;
 
@@ -178,12 +177,11 @@ static efi_status_t EFIAPI efi_get_time_boottime(
 		ret = EFI_INVALID_PARAMETER;
 		goto out;
 	}
-	if (uclass_get_device(UCLASS_RTC, 0, &dev) ||
-	    dm_rtc_get(dev, &tm)) {
-		ret = EFI_UNSUPPORTED;
-		goto out;
-	}
-	if (dm_rtc_get(dev, &tm)) {
+
+	r = uclass_get_device(UCLASS_RTC, 0, &dev);
+	if (!r)
+		r = dm_rtc_get(dev, &tm);
+	if (r) {
 		ret = EFI_DEVICE_ERROR;
 		goto out;
 	}
@@ -210,61 +208,11 @@ out:
 	return EFI_EXIT(ret);
 #else
 	EFI_ENTRY("%p %p", time, capabilities);
-	return EFI_EXIT(EFI_UNSUPPORTED);
+	return EFI_EXIT(EFI_DEVICE_ERROR);
 #endif
 }
 
-/**
- * efi_set_time_boottime() - set current time
- *
- * This function implements the SetTime() runtime service before
- * SetVirtualAddressMap() is called.
- *
- * See the Unified Extensible Firmware Interface (UEFI) specification
- * for details.
- *
- * @time:		pointer to structure to with current time
- * Returns:		status code
- */
-static efi_status_t EFIAPI efi_set_time_boottime(struct efi_time *time)
-{
-#ifdef CONFIG_DM_RTC
-	efi_status_t ret = EFI_SUCCESS;
-	struct rtc_time tm;
-	struct udevice *dev;
 
-	EFI_ENTRY("%p", time);
-
-	if (!time) {
-		ret = EFI_INVALID_PARAMETER;
-		goto out;
-	}
-
-	if (uclass_get_device(UCLASS_RTC, 0, &dev)) {
-		ret = EFI_UNSUPPORTED;
-		goto out;
-	}
-
-	memset(&tm, 0, sizeof(tm));
-	tm.tm_year = time->year;
-	tm.tm_mon = time->month;
-	tm.tm_mday = time->day;
-	tm.tm_hour = time->hour;
-	tm.tm_min = time->minute;
-	tm.tm_sec = time->second;
-	tm.tm_isdst = time->daylight == EFI_TIME_IN_DAYLIGHT;
-	/* Calculate day of week */
-	rtc_calc_weekday(&tm);
-
-	if (dm_rtc_set(dev, &tm))
-		ret = EFI_DEVICE_ERROR;
-out:
-	return EFI_EXIT(ret);
-#else
-	EFI_ENTRY("%p", time);
-	return EFI_EXIT(EFI_UNSUPPORTED);
-#endif
-}
 /**
  * efi_reset_system() - reset system
  *
@@ -321,24 +269,6 @@ efi_status_t __weak __efi_runtime EFIAPI efi_get_time(
 	return EFI_DEVICE_ERROR;
 }
 
-/**
- * efi_set_time() - set current time
- *
- * This function implements the SetTime runtime service after
- * SetVirtualAddressMap() is called. As the U-Boot driver are not available
- * anymore only an error code is returned.
- *
- * See the Unified Extensible Firmware Interface (UEFI) specification
- * for details.
- *
- * @time:		pointer to structure to with current time
- * Returns:		status code
- */
-efi_status_t __weak __efi_runtime EFIAPI efi_set_time(struct efi_time *time)
-{
-	return EFI_UNSUPPORTED;
-}
-
 struct efi_runtime_detach_list_struct {
 	void *ptr;
 	void *patchto;
@@ -352,14 +282,11 @@ static const struct efi_runtime_detach_list_struct efi_runtime_detach_list[] = {
 	}, {
 		/* invalidate_*cache_all are gone */
 		.ptr = &efi_runtime_services.set_virtual_address_map,
-		.patchto = &efi_unimplemented,
+		.patchto = &efi_invalid_parameter,
 	}, {
 		/* RTC accessors are gone */
 		.ptr = &efi_runtime_services.get_time,
 		.patchto = &efi_get_time,
-	}, {
-		.ptr = &efi_runtime_services.set_time,
-		.patchto = &efi_set_time,
 	}, {
 		/* Clean up system table */
 		.ptr = &systab.con_in,
@@ -451,9 +378,6 @@ void efi_runtime_relocate(ulong offset, struct efi_mem_desc *map)
 			ulong symidx = rel->info >> SYM_INDEX;
 			extern struct dyn_sym __dyn_sym_start[];
 			newaddr = __dyn_sym_start[symidx].addr + offset;
-#ifdef IS_RELA
-			newaddr -= CONFIG_SYS_TEXT_BASE;
-#endif
 			break;
 		}
 #endif
@@ -507,41 +431,13 @@ static efi_status_t EFIAPI efi_set_virtual_address_map(
 			uint32_t descriptor_version,
 			struct efi_mem_desc *virtmap)
 {
+	ulong runtime_start = (ulong)&__efi_runtime_start &
+			      ~(ulong)EFI_PAGE_MASK;
 	int n = memory_map_size / descriptor_size;
 	int i;
-	int rt_code_sections = 0;
 
 	EFI_ENTRY("%lx %lx %x %p", memory_map_size, descriptor_size,
 		  descriptor_version, virtmap);
-
-	/*
-	 * TODO:
-	 * Further down we are cheating. While really we should implement
-	 * SetVirtualAddressMap() events and ConvertPointer() to allow
-	 * dynamically loaded drivers to expose runtime services, we don't
-	 * today.
-	 *
-	 * So let's ensure we see exactly one single runtime section, as
-	 * that is the built-in one. If we see more (or less), someone must
-	 * have tried adding or removing to that which we don't support yet.
-	 * In that case, let's better fail rather than expose broken runtime
-	 * services.
-	 */
-	for (i = 0; i < n; i++) {
-		struct efi_mem_desc *map = (void*)virtmap +
-					   (descriptor_size * i);
-
-		if (map->type == EFI_RUNTIME_SERVICES_CODE)
-			rt_code_sections++;
-	}
-
-	if (rt_code_sections != 1) {
-		/*
-		 * We expose exactly one single runtime code section, so
-		 * something is definitely going wrong.
-		 */
-		return EFI_EXIT(EFI_INVALID_PARAMETER);
-	}
 
 	/* Rebind mmio pointers */
 	for (i = 0; i < n; i++) {
@@ -582,7 +478,7 @@ static efi_status_t EFIAPI efi_set_virtual_address_map(
 		map = (void*)virtmap + (descriptor_size * i);
 		if (map->type == EFI_RUNTIME_SERVICES_CODE) {
 			ulong new_offset = map->virtual_start -
-					   map->physical_start + gd->relocaddr;
+					   (runtime_start - gd->relocaddr);
 
 			efi_runtime_relocate(new_offset, map);
 			/* Once we're virtual, we can no longer handle
@@ -601,8 +497,7 @@ static efi_status_t EFIAPI efi_set_virtual_address_map(
  * This function adds a memory-mapped IO region to the memory map to make it
  * available at runtime.
  *
- * @mmio_ptr:		pointer to a pointer to the start of the memory-mapped
- *			IO region
+ * @mmio_ptr:		address of the memory-mapped IO region
  * @len:		size of the memory-mapped IO region
  * Returns:		status code
  */
@@ -728,8 +623,8 @@ efi_status_t __efi_runtime EFIAPI efi_update_capsule(
 efi_status_t __efi_runtime EFIAPI efi_query_capsule_caps(
 			struct efi_capsule_header **capsule_header_array,
 			efi_uintn_t capsule_count,
-			u64 *maximum_capsule_size,
-			u32 *reset_type)
+			u64 maximum_capsule_size,
+			u32 reset_type)
 {
 	return EFI_UNSUPPORTED;
 }
@@ -768,7 +663,7 @@ struct efi_runtime_services __efi_runtime_data efi_runtime_services = {
 		.headersize = sizeof(struct efi_runtime_services),
 	},
 	.get_time = &efi_get_time_boottime,
-	.set_time = &efi_set_time_boottime,
+	.set_time = (void *)&efi_device_error,
 	.get_wakeup_time = (void *)&efi_unimplemented,
 	.set_wakeup_time = (void *)&efi_unimplemented,
 	.set_virtual_address_map = &efi_set_virtual_address_map,

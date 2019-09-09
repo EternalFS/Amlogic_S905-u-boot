@@ -8,12 +8,10 @@ import u_boot_utils
 
 @pytest.mark.buildconfigspec('cmd_bootefi_selftest')
 def test_efi_selftest(u_boot_console):
-	"""Test the UEFI implementation
-
-	:param u_boot_console: U-Boot console
-
-	This function executes all selftests that are not marked as on request.
 	"""
+	Run bootefi selftest
+	"""
+
 	u_boot_console.run_command(cmd='setenv efi_selftest')
 	u_boot_console.run_command(cmd='bootefi selftest', wait_for_prompt=False)
 	m = u_boot_console.p.expect(['Summary: 0 failures', 'Press any key'])
@@ -27,7 +25,6 @@ def test_efi_selftest(u_boot_console):
 
 @pytest.mark.buildconfigspec('cmd_bootefi_selftest')
 @pytest.mark.buildconfigspec('of_control')
-@pytest.mark.notbuildconfigspec('generate_acpi_table')
 def test_efi_selftest_device_tree(u_boot_console):
 	u_boot_console.run_command(cmd='setenv efi_selftest list')
 	output = u_boot_console.run_command('bootefi selftest')
@@ -142,7 +139,7 @@ def test_efi_selftest_text_input_ex(u_boot_console):
 	u_boot_console.run_command(cmd=chr(4), wait_for_echo=False,
 				   send_nl=False, wait_for_prompt=False)
 	m = u_boot_console.p.expect(
-		['Unicode char 100 \\(\'d\'\\), scan code 0 \\(CTRL\\+Null\\)'])
+		['Unicode char 4 \(unknown\), scan code 0 \(CTRL\+Null\)'])
 	if m != 0:
 		raise Exception('EOT failed in \'text input\' test')
 	u_boot_console.drain_console()

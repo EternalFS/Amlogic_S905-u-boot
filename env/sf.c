@@ -18,6 +18,19 @@
 #include <errno.h>
 #include <dm/device-internal.h>
 
+#ifndef CONFIG_ENV_SPI_BUS
+# define CONFIG_ENV_SPI_BUS	CONFIG_SF_DEFAULT_BUS
+#endif
+#ifndef CONFIG_ENV_SPI_CS
+# define CONFIG_ENV_SPI_CS	CONFIG_SF_DEFAULT_CS
+#endif
+#ifndef CONFIG_ENV_SPI_MAX_HZ
+# define CONFIG_ENV_SPI_MAX_HZ	CONFIG_SF_DEFAULT_SPEED
+#endif
+#ifndef CONFIG_ENV_SPI_MODE
+# define CONFIG_ENV_SPI_MODE	CONFIG_SF_DEFAULT_MODE
+#endif
+
 #ifndef CONFIG_SPL_BUILD
 #define CMD_SAVEENV
 #define INITENV
@@ -285,17 +298,10 @@ out:
 }
 #endif
 
-#ifdef CONFIG_ENV_ADDR
-__weak void *env_sf_get_env_addr(void)
-{
-	return (void *)CONFIG_ENV_ADDR;
-}
-#endif
-
 #if defined(INITENV) && defined(CONFIG_ENV_ADDR)
 static int env_sf_init(void)
 {
-	env_t *env_ptr = (env_t *)env_sf_get_env_addr();
+	env_t *env_ptr = (env_t *)(CONFIG_ENV_ADDR);
 
 	if (crc32(0, env_ptr->data, ENV_SIZE) == env_ptr->crc) {
 		gd->env_addr	= (ulong)&(env_ptr->data);

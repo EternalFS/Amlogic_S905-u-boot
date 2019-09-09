@@ -254,8 +254,7 @@ static int socfpga_a10_clk_bind(struct udevice *dev)
 		    fdt_node_check_compatible(fdt, offset, "fixed-clock"))
 			continue;
 
-		if (pre_reloc_only &&
-		    !dm_ofnode_pre_reloc(offset_to_ofnode(offset)))
+		if (pre_reloc_only && !dm_fdt_pre_reloc(fdt, offset))
 			continue;
 
 		ret = device_bind_driver_to_node(dev, "clk-a10", name,
@@ -353,6 +352,7 @@ static const struct udevice_id socfpga_a10_clk_match[] = {
 U_BOOT_DRIVER(socfpga_a10_clk) = {
 	.name		= "clk-a10",
 	.id		= UCLASS_CLK,
+	.flags		= DM_FLAG_PRE_RELOC,
 	.of_match	= socfpga_a10_clk_match,
 	.ops		= &socfpga_a10_clk_ops,
 	.bind		= socfpga_a10_clk_bind,

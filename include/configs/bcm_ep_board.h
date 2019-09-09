@@ -55,4 +55,7 @@
 
 /* Enable Time Command */
 
+/* Misc utility code */
+#define CONFIG_BOUNCE_BUFFER
+
 #endif /* __BCM_EP_BOARD_H */

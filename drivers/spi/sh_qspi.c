@@ -247,6 +247,11 @@ void spi_cs_deactivate(struct spi_slave *slave)
 	sh_qspi_cs_deactivate(ss);
 }
 
+void spi_init(void)
+{
+	/* nothing to do */
+}
+
 struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 		unsigned int max_hz, unsigned int mode)
 {

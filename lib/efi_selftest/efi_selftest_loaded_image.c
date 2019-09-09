@@ -53,15 +53,16 @@ static int execute(void)
 		efi_st_error("ProtocolsPerHandle failed\n");
 		return EFI_ST_FAILURE;
 	}
-	if (!protocol_buffer_count || !protocol_buffer) {
+	if (!protocol_buffer_count | !protocol_buffer) {
 		efi_st_error("ProtocolsPerHandle returned no protocol\n");
 		return EFI_ST_FAILURE;
 	}
 	efi_st_printf("%u protocols installed on image handle\n",
 		      (unsigned int)protocol_buffer_count);
 	for (i = 0; i < protocol_buffer_count; ++i) {
-		if (memcmp(protocol_buffer[i], &loaded_image_protocol_guid,
-			   sizeof(efi_guid_t)))
+		if (efi_st_memcmp(protocol_buffer[i],
+				  &loaded_image_protocol_guid,
+				  sizeof(efi_guid_t)))
 			found = true;
 	}
 	if (!found) {

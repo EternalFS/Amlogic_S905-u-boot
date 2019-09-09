@@ -7,7 +7,3 @@
 		u-boot,dm-spl;
 	};
 };
-
-&sdhci {
-	u-boot,dm-spl;
-};

@@ -16,7 +16,7 @@ DECLARE_GLOBAL_DATA_PTR;
 __maybe_unused
 static void print_num(const char *name, ulong value)
 {
-	printf("%-12s= 0x%0*lx\n", name, 2 * (int)sizeof(value), value);
+	printf("%-12s= 0x%08lX\n", name, value);
 }
 
 __maybe_unused
@@ -321,7 +321,7 @@ static int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc,
 	print_eths();
 #endif
 	print_baudrate();
-#if !(CONFIG_IS_ENABLED(SYS_ICACHE_OFF) && CONFIG_IS_ENABLED(SYS_DCACHE_OFF))
+#if !(defined(CONFIG_SYS_ICACHE_OFF) && defined(CONFIG_SYS_DCACHE_OFF))
 	print_num("TLB addr", gd->arch.tlb_addr);
 #endif
 	print_num("relocaddr", gd->relocaddr);
@@ -348,7 +348,7 @@ static int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc,
 	       CONFIG_VAL(SYS_MALLOC_F_LEN));
 #endif
 	if (gd->fdt_blob)
-		print_num("fdt_blob", (ulong)gd->fdt_blob);
+		printf("fdt_blob = %p\n", gd->fdt_blob);
 
 	return 0;
 }

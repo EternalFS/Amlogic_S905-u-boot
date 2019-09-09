@@ -46,9 +46,6 @@ static cmd_tbl_t cmd_ut_sub[] = {
 #ifdef CONFIG_UT_OVERLAY
 	U_BOOT_CMD_MKENT(overlay, CONFIG_SYS_MAXARGS, 1, do_ut_overlay, "", ""),
 #endif
-#ifdef CONFIG_UT_LIB
-	U_BOOT_CMD_MKENT(lib, CONFIG_SYS_MAXARGS, 1, do_ut_lib, "", ""),
-#endif
 #ifdef CONFIG_UT_TIME
 	U_BOOT_CMD_MKENT(time, CONFIG_SYS_MAXARGS, 1, do_ut_time, "", ""),
 #endif
@@ -57,8 +54,6 @@ static cmd_tbl_t cmd_ut_sub[] = {
 #endif
 #ifdef CONFIG_SANDBOX
 	U_BOOT_CMD_MKENT(compression, CONFIG_SYS_MAXARGS, 1, do_ut_compression,
-			 "", ""),
-	U_BOOT_CMD_MKENT(bloblist, CONFIG_SYS_MAXARGS, 1, do_ut_bloblist,
 			 "", ""),
 #endif
 };
@@ -102,7 +97,6 @@ static int do_ut(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 static char ut_help_text[] =
 	"all - execute all enabled tests\n"
 #ifdef CONFIG_SANDBOX
-	"ut bloblist - Test bloblist implementation\n"
 	"ut compression - Test compressors and bootm decompression\n"
 #endif
 #ifdef CONFIG_UT_DM
@@ -110,9 +104,6 @@ static char ut_help_text[] =
 #endif
 #ifdef CONFIG_UT_ENV
 	"ut env [test-name]\n"
-#endif
-#ifdef CONFIG_UT_LIB
-	"ut lib [test-name] - test library functions\n"
 #endif
 #ifdef CONFIG_UT_OVERLAY
 	"ut overlay [test-name]\n"

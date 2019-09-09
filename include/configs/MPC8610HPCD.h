@@ -43,6 +43,7 @@
 #define CONFIG_INTERRUPTS		/* enable pci, srio, ddr interrupts */
 
 #define CONFIG_BAT_RW		1	/* Use common BAT rw code */
+#define CONFIG_HIGH_BATS	1	/* High BATs supported & enabled */
 #define CONFIG_ALTIVEC		1
 
 /*
@@ -71,6 +72,7 @@
 #define CONFIG_SYS_CCSRBAR_PHYS		CONFIG_SYS_CCSRBAR_PHYS_LOW
 
 /* DDR Setup */
+#undef CONFIG_FSL_DDR_INTERACTIVE
 #define CONFIG_SPD_EEPROM		/* Use SPD for DDR */
 #define CONFIG_DDR_SPD
 

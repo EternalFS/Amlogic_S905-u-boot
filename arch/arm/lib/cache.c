@@ -87,7 +87,7 @@ void noncached_init(void)
 	noncached_end = end;
 	noncached_next = start;
 
-#if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
+#ifndef CONFIG_SYS_DCACHE_OFF
 	mmu_set_region_dcache_behaviour(noncached_start, size, DCACHE_OFF);
 #endif
 }

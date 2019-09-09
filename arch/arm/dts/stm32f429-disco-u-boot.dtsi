@@ -70,11 +70,19 @@
 	u-boot,dm-pre-reloc;
 };
 
+&clk_lse {
+	u-boot,dm-pre-reloc;
+};
+
 &clk_i2s_ckin {
 	u-boot,dm-pre-reloc;
 };
 
-&clk_lse {
+&pwrcfg {
+	u-boot,dm-pre-reloc;
+};
+
+&rcc {
 	u-boot,dm-pre-reloc;
 };
 
@@ -194,12 +202,4 @@
 			u-boot,dm-pre-reloc;
 		};
 	};
-};
-
-&pwrcfg {
-	u-boot,dm-pre-reloc;
-};
-
-&rcc {
-	u-boot,dm-pre-reloc;
 };

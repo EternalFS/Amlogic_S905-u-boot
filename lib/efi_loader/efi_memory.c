@@ -11,12 +11,8 @@
 #include <mapmem.h>
 #include <watchdog.h>
 #include <linux/list_sort.h>
-#include <linux/sizes.h>
 
 DECLARE_GLOBAL_DATA_PTR;
-
-/* Magic number identifying memory allocated from pool */
-#define EFI_ALLOC_POOL_MAGIC 0x1fe67ddf6491caa2
 
 efi_uintn_t efi_memory_map_key;
 
@@ -36,12 +32,7 @@ LIST_HEAD(efi_mem);
 void *efi_bounce_buffer;
 #endif
 
-/**
- * efi_pool_allocation - memory block allocated from pool
- *
- * @num_pages:	number of pages allocated
- * @checksum:	checksum
- *
+/*
  * U-Boot services each EFI AllocatePool request as a separate
  * (multiple) page allocation.  We have to track the number of pages
  * to be able to free the correct amount later.
@@ -51,25 +42,8 @@ void *efi_bounce_buffer;
  */
 struct efi_pool_allocation {
 	u64 num_pages;
-	u64 checksum;
 	char data[] __aligned(ARCH_DMA_MINALIGN);
 };
-
-/**
- * checksum() - calculate checksum for memory allocated from pool
- *
- * @alloc:	allocation header
- * Return:	checksum, always non-zero
- */
-static u64 checksum(struct efi_pool_allocation *alloc)
-{
-	u64 addr = (uintptr_t)alloc;
-	u64 ret = (addr >> 32) ^ (addr << 32) ^ alloc->num_pages ^
-		  EFI_ALLOC_POOL_MAGIC;
-	if (!ret)
-		++ret;
-	return ret;
-}
 
 /*
  * Sorts the memory list from highest address to lowest address
@@ -193,7 +167,6 @@ static s64 efi_mem_carve_out(struct efi_mem_list *map,
 			free(map);
 		} else {
 			map->desc.physical_start = carve_end;
-			map->desc.virtual_start = carve_end;
 			map->desc.num_pages = (map_end - carve_end)
 					      >> EFI_PAGE_SHIFT;
 		}
@@ -212,7 +185,6 @@ static s64 efi_mem_carve_out(struct efi_mem_list *map,
 	newmap = calloc(1, sizeof(*newmap));
 	newmap->desc = map->desc;
 	newmap->desc.physical_start = carve_start;
-	newmap->desc.virtual_start = carve_start;
 	newmap->desc.num_pages = (map_end - carve_start) >> EFI_PAGE_SHIFT;
 	/* Insert before current entry (descending address order) */
 	list_add_tail(&newmap->link, &map->link);
@@ -231,8 +203,8 @@ uint64_t efi_add_memory_map(uint64_t start, uint64_t pages, int memory_type,
 	bool carve_again;
 	uint64_t carved_pages = 0;
 
-	EFI_PRINT("%s: 0x%llx 0x%llx %d %s\n", __func__,
-		  start, pages, memory_type, overlap_only_ram ? "yes" : "no");
+	debug("%s: 0x%llx 0x%llx %d %s\n", __func__,
+	      start, pages, memory_type, overlap_only_ram ? "yes" : "no");
 
 	if (memory_type >= EFI_MAX_MEMORY_TYPE)
 		return EFI_INVALID_PARAMETER;
@@ -318,53 +290,9 @@ uint64_t efi_add_memory_map(uint64_t start, uint64_t pages, int memory_type,
 	return start;
 }
 
-/**
- * efi_check_allocated() - validate address to be freed
- *
- * Check that the address is within allocated memory:
- *
- * * The address cannot be NULL.
- * * The address must be in a range of the memory map.
- * * The address may not point to EFI_CONVENTIONAL_MEMORY.
- *
- * Page alignment is not checked as this is not a requirement of
- * efi_free_pool().
- *
- * @addr:		address of page to be freed
- * @must_be_allocated:	return success if the page is allocated
- * Return:		status code
- */
-static efi_status_t efi_check_allocated(u64 addr, bool must_be_allocated)
-{
-	struct efi_mem_list *item;
-
-	if (!addr)
-		return EFI_INVALID_PARAMETER;
-	list_for_each_entry(item, &efi_mem, link) {
-		u64 start = item->desc.physical_start;
-		u64 end = start + (item->desc.num_pages << EFI_PAGE_SHIFT);
-
-		if (addr >= start && addr < end) {
-			if (must_be_allocated ^
-			    (item->desc.type == EFI_CONVENTIONAL_MEMORY))
-				return EFI_SUCCESS;
-			else
-				return EFI_NOT_FOUND;
-		}
-	}
-
-	return EFI_NOT_FOUND;
-}
-
 static uint64_t efi_find_free_memory(uint64_t len, uint64_t max_addr)
 {
 	struct list_head *lhandle;
-
-	/*
-	 * Prealign input max address, so we simplify our matching
-	 * logic below and can just reuse it as return pointer.
-	 */
-	max_addr &= ~EFI_PAGE_MASK;
 
 	list_for_each(lhandle, &efi_mem) {
 		struct efi_mem_list *lmem = list_entry(lhandle,
@@ -411,13 +339,9 @@ efi_status_t efi_allocate_pages(int type, int memory_type,
 				efi_uintn_t pages, uint64_t *memory)
 {
 	u64 len = pages << EFI_PAGE_SHIFT;
-	efi_status_t ret;
+	efi_status_t r = EFI_SUCCESS;
 	uint64_t addr;
 
-	/* Check import parameters */
-	if (memory_type >= EFI_PERSISTENT_MEMORY_TYPE &&
-	    memory_type <= 0x6FFFFFFF)
-		return EFI_INVALID_PARAMETER;
 	if (!memory)
 		return EFI_INVALID_PARAMETER;
 
@@ -425,41 +349,49 @@ efi_status_t efi_allocate_pages(int type, int memory_type,
 	case EFI_ALLOCATE_ANY_PAGES:
 		/* Any page */
 		addr = efi_find_free_memory(len, -1ULL);
-		if (!addr)
-			return EFI_OUT_OF_RESOURCES;
+		if (!addr) {
+			r = EFI_NOT_FOUND;
+			break;
+		}
 		break;
 	case EFI_ALLOCATE_MAX_ADDRESS:
 		/* Max address */
 		addr = efi_find_free_memory(len, *memory);
-		if (!addr)
-			return EFI_OUT_OF_RESOURCES;
+		if (!addr) {
+			r = EFI_NOT_FOUND;
+			break;
+		}
 		break;
 	case EFI_ALLOCATE_ADDRESS:
 		/* Exact address, reserve it. The addr is already in *memory. */
-		ret = efi_check_allocated(*memory, false);
-		if (ret != EFI_SUCCESS)
-			return EFI_NOT_FOUND;
 		addr = *memory;
 		break;
 	default:
 		/* UEFI doesn't specify other allocation types */
-		return EFI_INVALID_PARAMETER;
+		r = EFI_INVALID_PARAMETER;
+		break;
 	}
 
-	/* Reserve that map in our memory maps */
-	if (efi_add_memory_map(addr, pages, memory_type, true) != addr)
-		/* Map would overlap, bail out */
-		return  EFI_OUT_OF_RESOURCES;
+	if (r == EFI_SUCCESS) {
+		uint64_t ret;
 
-	*memory = addr;
+		/* Reserve that map in our memory maps */
+		ret = efi_add_memory_map(addr, pages, memory_type, true);
+		if (ret == addr) {
+			*memory = (uintptr_t)map_sysmem(addr, len);
+		} else {
+			/* Map would overlap, bail out */
+			r = EFI_OUT_OF_RESOURCES;
+		}
+	}
 
-	return EFI_SUCCESS;
+	return r;
 }
 
 void *efi_alloc(uint64_t len, int memory_type)
 {
 	uint64_t ret = 0;
-	uint64_t pages = efi_size_in_pages(len);
+	uint64_t pages = (len + EFI_PAGE_MASK) >> EFI_PAGE_SHIFT;
 	efi_status_t r;
 
 	r = efi_allocate_pages(EFI_ALLOCATE_ANY_PAGES, memory_type, pages,
@@ -470,53 +402,41 @@ void *efi_alloc(uint64_t len, int memory_type)
 	return NULL;
 }
 
-/**
- * efi_free_pages() - free memory pages
+/*
+ * Free memory pages.
  *
- * @memory:	start of the memory area to be freed
- * @pages:	number of pages to be freed
- * Return:	status code
+ * @memory	start of the memory area to be freed
+ * @pages	number of pages to be freed
+ * @return	status code
  */
 efi_status_t efi_free_pages(uint64_t memory, efi_uintn_t pages)
 {
 	uint64_t r = 0;
-	efi_status_t ret;
+	uint64_t addr = map_to_sysmem((void *)(uintptr_t)memory);
 
-	ret = efi_check_allocated(memory, true);
-	if (ret != EFI_SUCCESS)
-		return ret;
-
-	/* Sanity check */
-	if (!memory || (memory & EFI_PAGE_MASK) || !pages) {
-		printf("%s: illegal free 0x%llx, 0x%zx\n", __func__,
-		       memory, pages);
-		return EFI_INVALID_PARAMETER;
-	}
-
-	r = efi_add_memory_map(memory, pages, EFI_CONVENTIONAL_MEMORY, false);
+	r = efi_add_memory_map(addr, pages, EFI_CONVENTIONAL_MEMORY, false);
 	/* Merging of adjacent free regions is missing */
 
-	if (r == memory)
+	if (r == addr)
 		return EFI_SUCCESS;
 
 	return EFI_NOT_FOUND;
 }
 
-/**
- * efi_allocate_pool - allocate memory from pool
+/*
+ * Allocate memory from pool.
  *
- * @pool_type:	type of the pool from which memory is to be allocated
- * @size:	number of bytes to be allocated
- * @buffer:	allocated memory
- * Return:	status code
+ * @pool_type	type of the pool from which memory is to be allocated
+ * @size	number of bytes to be allocated
+ * @buffer	allocated memory
+ * @return	status code
  */
 efi_status_t efi_allocate_pool(int pool_type, efi_uintn_t size, void **buffer)
 {
 	efi_status_t r;
-	u64 addr;
 	struct efi_pool_allocation *alloc;
-	u64 num_pages = efi_size_in_pages(size +
-					  sizeof(struct efi_pool_allocation));
+	u64 num_pages = (size + sizeof(struct efi_pool_allocation) +
+			 EFI_PAGE_MASK) >> EFI_PAGE_SHIFT;
 
 	if (!buffer)
 		return EFI_INVALID_PARAMETER;
@@ -527,46 +447,37 @@ efi_status_t efi_allocate_pool(int pool_type, efi_uintn_t size, void **buffer)
 	}
 
 	r = efi_allocate_pages(EFI_ALLOCATE_ANY_PAGES, pool_type, num_pages,
-			       &addr);
+			       (uint64_t *)&alloc);
+
 	if (r == EFI_SUCCESS) {
-		alloc = (struct efi_pool_allocation *)(uintptr_t)addr;
 		alloc->num_pages = num_pages;
-		alloc->checksum = checksum(alloc);
 		*buffer = alloc->data;
 	}
 
 	return r;
 }
 
-/**
- * efi_free_pool() - free memory from pool
+/*
+ * Free memory from pool.
  *
- * @buffer:	start of memory to be freed
- * Return:	status code
+ * @buffer	start of memory to be freed
+ * @return	status code
  */
 efi_status_t efi_free_pool(void *buffer)
 {
-	efi_status_t ret;
+	efi_status_t r;
 	struct efi_pool_allocation *alloc;
 
-	ret = efi_check_allocated((uintptr_t)buffer, true);
-	if (ret != EFI_SUCCESS)
-		return ret;
+	if (buffer == NULL)
+		return EFI_INVALID_PARAMETER;
 
 	alloc = container_of(buffer, struct efi_pool_allocation, data);
+	/* Sanity check, was the supplied address returned by allocate_pool */
+	assert(((uintptr_t)alloc & EFI_PAGE_MASK) == 0);
 
-	/* Check that this memory was allocated by efi_allocate_pool() */
-	if (((uintptr_t)alloc & EFI_PAGE_MASK) ||
-	    alloc->checksum != checksum(alloc)) {
-		printf("%s: illegal free 0x%p\n", __func__, buffer);
-		return EFI_INVALID_PARAMETER;
-	}
-	/* Avoid double free */
-	alloc->checksum = 0;
+	r = efi_free_pages((uintptr_t)alloc, alloc->num_pages);
 
-	ret = efi_free_pages((uintptr_t)alloc, alloc->num_pages);
-
-	return ret;
+	return r;
 }
 
 /*
@@ -634,57 +545,17 @@ efi_status_t efi_get_memory_map(efi_uintn_t *memory_map_size,
 
 __weak void efi_add_known_memory(void)
 {
-	u64 ram_top = board_get_usable_ram_top(0) & ~EFI_PAGE_MASK;
 	int i;
-
-	/*
-	 * ram_top is just outside mapped memory. So use an offset of one for
-	 * mapping the sandbox address.
-	 */
-	ram_top = (uintptr_t)map_sysmem(ram_top - 1, 0) + 1;
-
-	/* Fix for 32bit targets with ram_top at 4G */
-	if (!ram_top)
-		ram_top = 0x100000000ULL;
 
 	/* Add RAM */
 	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
-		u64 ram_end, ram_start, pages;
+		u64 ram_start = gd->bd->bi_dram[i].start;
+		u64 ram_size = gd->bd->bi_dram[i].size;
+		u64 start = (ram_start + EFI_PAGE_MASK) & ~EFI_PAGE_MASK;
+		u64 pages = (ram_size + EFI_PAGE_MASK) >> EFI_PAGE_SHIFT;
 
-		ram_start = (uintptr_t)map_sysmem(gd->bd->bi_dram[i].start, 0);
-		ram_end = ram_start + gd->bd->bi_dram[i].size;
-
-		/* Remove partial pages */
-		ram_end &= ~EFI_PAGE_MASK;
-		ram_start = (ram_start + EFI_PAGE_MASK) & ~EFI_PAGE_MASK;
-
-		if (ram_end <= ram_start) {
-			/* Invalid mapping, keep going. */
-			continue;
-		}
-
-		pages = (ram_end - ram_start) >> EFI_PAGE_SHIFT;
-
-		efi_add_memory_map(ram_start, pages,
-				   EFI_CONVENTIONAL_MEMORY, false);
-
-		/*
-		 * Boards may indicate to the U-Boot memory core that they
-		 * can not support memory above ram_top. Let's honor this
-		 * in the efi_loader subsystem too by declaring any memory
-		 * above ram_top as "already occupied by firmware".
-		 */
-		if (ram_top < ram_start) {
-			/* ram_top is before this region, reserve all */
-			efi_add_memory_map(ram_start, pages,
-					   EFI_BOOT_SERVICES_DATA, true);
-		} else if ((ram_top >= ram_start) && (ram_top < ram_end)) {
-			/* ram_top is inside this region, reserve parts */
-			pages = (ram_end - ram_top) >> EFI_PAGE_SHIFT;
-
-			efi_add_memory_map(ram_top, pages,
-					   EFI_BOOT_SERVICES_DATA, true);
-		}
+		efi_add_memory_map(start, pages, EFI_CONVENTIONAL_MEMORY,
+				   false);
 	}
 }
 
@@ -692,7 +563,6 @@ __weak void efi_add_known_memory(void)
 static void add_u_boot_and_runtime(void)
 {
 	unsigned long runtime_start, runtime_end, runtime_pages;
-	unsigned long runtime_mask = EFI_PAGE_MASK;
 	unsigned long uboot_start, uboot_pages;
 	unsigned long uboot_stack_size = 16 * 1024 * 1024;
 
@@ -701,22 +571,10 @@ static void add_u_boot_and_runtime(void)
 	uboot_pages = (gd->ram_top - uboot_start) >> EFI_PAGE_SHIFT;
 	efi_add_memory_map(uboot_start, uboot_pages, EFI_LOADER_DATA, false);
 
-#if defined(__aarch64__)
-	/*
-	 * Runtime Services must be 64KiB aligned according to the
-	 * "AArch64 Platforms" section in the UEFI spec (2.7+).
-	 */
-
-	runtime_mask = SZ_64K - 1;
-#endif
-
-	/*
-	 * Add Runtime Services. We mark surrounding boottime code as runtime as
-	 * well to fulfill the runtime alignment constraints but avoid padding.
-	 */
-	runtime_start = (ulong)&__efi_runtime_start & ~runtime_mask;
+	/* Add Runtime Services */
+	runtime_start = (ulong)&__efi_runtime_start & ~EFI_PAGE_MASK;
 	runtime_end = (ulong)&__efi_runtime_stop;
-	runtime_end = (runtime_end + runtime_mask) & ~runtime_mask;
+	runtime_end = (runtime_end + EFI_PAGE_MASK) & ~EFI_PAGE_MASK;
 	runtime_pages = (runtime_end - runtime_start) >> EFI_PAGE_SHIFT;
 	efi_add_memory_map(runtime_start, runtime_pages,
 			   EFI_RUNTIME_SERVICES_CODE, false);

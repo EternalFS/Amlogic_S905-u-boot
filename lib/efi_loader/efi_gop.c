@@ -14,24 +14,17 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-static const efi_guid_t efi_gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+static const efi_guid_t efi_gop_guid = EFI_GOP_GUID;
 
-/**
- * struct efi_gop_obj - graphical output protocol object
- *
- * @header:	EFI object header
- * @ops:	graphical output protocol interface
- * @info:	graphical output mode information
- * @mode:	graphical output mode
- * @bpix:	bits per pixel
- * @fb:		frame buffer
- */
 struct efi_gop_obj {
-	struct efi_object header;
+	/* Generic EFI object parent class data */
+	struct efi_object parent;
+	/* EFI Interface callback struct for gop */
 	struct efi_gop ops;
+	/* The only mode we support */
 	struct efi_gop_mode_info info;
 	struct efi_gop_mode mode;
-	/* Fields we only have access to during init */
+	/* Fields we only have acces to during init */
 	u32 bpix;
 	void *fb;
 };
@@ -243,12 +236,12 @@ static efi_uintn_t gop_get_bpp(struct efi_gop *this)
 }
 
 /*
- * GCC can't optimize our BLT function well, but we need to make sure that
+ * Gcc can't optimize our BLT function well, but we need to make sure that
  * our 2-dimensional loop gets executed very quickly, otherwise the system
  * will feel slow.
  *
  * By manually putting all obvious branch targets into functions which call
- * our generic BLT function with constants, the compiler can successfully
+ * our generic blt function with constants, the compiler can successfully
  * optimize for speed.
  */
 static efi_status_t gop_blt_video_fill(struct efi_gop *this,
@@ -446,13 +439,13 @@ efi_status_t efi_gop_register(void)
 	}
 
 	/* Hook up to the device list */
-	efi_add_handle(&gopobj->header);
+	efi_add_handle(&gopobj->parent);
 
 	/* Fill in object data */
-	ret = efi_add_protocol(&gopobj->header, &efi_gop_guid,
+	ret = efi_add_protocol(gopobj->parent.handle, &efi_gop_guid,
 			       &gopobj->ops);
 	if (ret != EFI_SUCCESS) {
-		printf("ERROR: Failure adding GOP protocol\n");
+		printf("ERROR: Failure adding gop protocol\n");
 		return ret;
 	}
 	gopobj->ops.query_mode = gop_query_mode;
@@ -470,10 +463,7 @@ efi_status_t efi_gop_register(void)
 	if (bpix == LCD_COLOR32)
 #endif
 	{
-		/*
-		 * With 32bit color space we can directly expose the frame
-		 * buffer
-		 */
+		/* With 32bit color space we can directly expose the fb */
 		gopobj->mode.fb_base = fb_base;
 		gopobj->mode.fb_size = fb_size;
 	}

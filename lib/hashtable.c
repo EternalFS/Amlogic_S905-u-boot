@@ -40,9 +40,6 @@
 #define	CONFIG_ENV_MAX_ENTRIES 512
 #endif
 
-#define USED_FREE 0
-#define USED_DELETED -1
-
 #include <env_callback.h>
 #include <env_flags.h>
 #include <search.h>
@@ -306,7 +303,7 @@ int hsearch_r(ENTRY item, ACTION action, ENTRY ** retval,
 		 */
 		unsigned hval2;
 
-		if (htab->table[idx].used == USED_DELETED
+		if (htab->table[idx].used == -1
 		    && !first_deleted)
 			first_deleted = idx;
 
@@ -338,17 +335,13 @@ int hsearch_r(ENTRY item, ACTION action, ENTRY ** retval,
 			if (idx == hval)
 				break;
 
-			if (htab->table[idx].used == USED_DELETED
-			    && !first_deleted)
-				first_deleted = idx;
-
 			/* If entry is found use it. */
 			ret = _compare_and_overwrite_entry(item, action, retval,
 				htab, flag, hval, idx);
 			if (ret != -1)
 				return ret;
 		}
-		while (htab->table[idx].used != USED_FREE);
+		while (htab->table[idx].used);
 	}
 
 	/* An empty bucket has been found. */
@@ -440,7 +433,7 @@ static void _hdelete(const char *key, struct hsearch_data *htab, ENTRY *ep,
 	free(ep->data);
 	ep->callback = NULL;
 	ep->flags = 0;
-	htab->table[idx].used = USED_DELETED;
+	htab->table[idx].used = -1;
 
 	--htab->filled;
 }
@@ -549,8 +542,9 @@ static int match_string(int flag, const char *str, const char *pat, void *priv)
 	case H_MATCH_REGEX:
 		{
 			struct slre *slrep = (struct slre *)priv;
+			struct cap caps[slrep->num_caps + 2];
 
-			if (slre_match(slrep, str, strlen(str), NULL))
+			if (slre_match(slrep, str, strlen(str), caps))
 				return 1;
 		}
 		break;
@@ -668,7 +662,7 @@ ssize_t hexport_r(struct hsearch_data *htab, const char sep, int flag,
 			return (-1);
 		}
 	} else {
-		size = totlen + 1;
+		size = totlen;
 	}
 
 	/* Check if the user provided a buffer */

@@ -32,7 +32,6 @@ obj-$(CONFIG_CMD_BTRFS) += btrfs.o
 obj-$(CONFIG_CMD_CACHE) += cache.o
 obj-$(CONFIG_CMD_CBFS) += cbfs.o
 obj-$(CONFIG_CMD_CLK) += clk.o
-obj-$(CONFIG_CMD_CLS) += cls.o
 obj-$(CONFIG_CMD_CONFIG) += config.o
 obj-$(CONFIG_CMD_CONITRACE) += conitrace.o
 obj-$(CONFIG_CMD_CONSOLE) += console.o
@@ -40,17 +39,16 @@ obj-$(CONFIG_CMD_CPU) += cpu.o
 obj-$(CONFIG_DATAFLASH_MMC_SELECT) += dataflash_mmc_mux.o
 obj-$(CONFIG_CMD_DATE) += date.o
 obj-$(CONFIG_CMD_DEMO) += demo.o
-obj-$(CONFIG_CMD_DM) += dm.o
 obj-$(CONFIG_CMD_SOUND) += sound.o
 ifdef CONFIG_POST
 obj-$(CONFIG_CMD_DIAG) += diag.o
 endif
+obj-$(CONFIG_CMD_DISPLAY) += display.o
 obj-$(CONFIG_CMD_DTIMG) += dtimg.o
 obj-$(CONFIG_CMD_ECHO) += echo.o
 obj-$(CONFIG_ENV_IS_IN_EEPROM) += eeprom.o
 obj-$(CONFIG_CMD_EEPROM) += eeprom.o
 obj-$(CONFIG_EFI_STUB) += efi.o
-obj-$(CONFIG_CMD_EFIDEBUG) += efidebug.o
 obj-$(CONFIG_CMD_ELF) += elf.o
 obj-$(CONFIG_HUSH_PARSER) += exit.o
 obj-$(CONFIG_CMD_EXT4) += ext4.o
@@ -98,15 +96,13 @@ obj-$(CONFIG_CMD_MTD) += mtd.o
 obj-$(CONFIG_CMD_MTDPARTS) += mtdparts.o
 obj-$(CONFIG_CMD_NAND) += nand.o
 obj-$(CONFIG_CMD_NET) += net.o
-obj-$(CONFIG_CMD_NVEDIT_EFI) += nvedit_efi.o
 obj-$(CONFIG_CMD_ONENAND) += onenand.o
 obj-$(CONFIG_CMD_OSD) += osd.o
 obj-$(CONFIG_CMD_PART) += part.o
 ifdef CONFIG_PCI
 obj-$(CONFIG_CMD_PCI) += pci.o
 endif
-obj-$(CONFIG_CMD_PCMCIA) += pcmcia.o
-obj-$(CONFIG_CMD_PINMUX) += pinmux.o
+obj-y += pcmcia.o
 obj-$(CONFIG_CMD_PXE) += pxe.o
 obj-$(CONFIG_CMD_WOL) += wol.o
 obj-$(CONFIG_CMD_QFW) += qfw.o
@@ -118,7 +114,6 @@ obj-$(CONFIG_CMD_ROCKUSB) += rockusb.o
 obj-$(CONFIG_SANDBOX) += host.o
 obj-$(CONFIG_CMD_SATA) += sata.o
 obj-$(CONFIG_CMD_NVME) += nvme.o
-obj-$(CONFIG_SANDBOX) += sb.o
 obj-$(CONFIG_CMD_SF) += sf.o
 obj-$(CONFIG_CMD_SCSI) += scsi.o disk.o
 obj-$(CONFIG_CMD_SHA1SUM) += sha1sum.o
@@ -140,8 +135,6 @@ obj-$(CONFIG_CMD_UBI) += ubi.o
 obj-$(CONFIG_CMD_UBIFS) += ubifs.o
 obj-$(CONFIG_CMD_UNIVERSE) += universe.o
 obj-$(CONFIG_CMD_UNZIP) += unzip.o
-obj-$(CONFIG_CMD_VIRTIO) += virtio.o
-obj-$(CONFIG_CMD_WDT) += wdt.o
 obj-$(CONFIG_CMD_LZMADEC) += lzmadec.o
 
 obj-$(CONFIG_CMD_USB) += usb.o disk.o
@@ -169,11 +162,11 @@ obj-$(CONFIG_CMD_REGULATOR) += regulator.o
 
 obj-$(CONFIG_CMD_BLOB) += blob.o
 
+obj-$(CONFIG_CMD_KHADAS_KBI) += kbi.o
+
 # Android Verified Boot 2.0
 obj-$(CONFIG_CMD_AVB) += avb.o
 
-obj-$(CONFIG_ARM) += arm/
-obj-$(CONFIG_RISCV) += riscv/
 obj-$(CONFIG_X86) += x86/
 
 obj-$(CONFIG_ARCH_MVEBU) += mvebu/

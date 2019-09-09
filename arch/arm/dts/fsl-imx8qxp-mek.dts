@@ -6,7 +6,6 @@
 /dts-v1/;
 
 #include "fsl-imx8qxp.dtsi"
-#include "fsl-imx8qxp-mek-u-boot.dtsi"
 
 / {
 	model = "Freescale i.MX8QXP MEK";
@@ -17,14 +16,18 @@
 		stdout-path = &lpuart0;
 	};
 
-	reg_usdhc2_vmmc: regulator-usdhc2-vmmc {
-		compatible = "regulator-fixed";
-		regulator-name = "SD1_SPWR";
-		regulator-min-microvolt = <3000000>;
-		regulator-max-microvolt = <3000000>;
-		gpio = <&gpio4 19 GPIO_ACTIVE_HIGH>;
-		off-on-delay = <3480>;
-		enable-active-high;
+	regulators {
+		compatible = "simple-bus";
+
+		reg_usdhc2_vmmc: usdhc2-vmmc {
+			compatible = "regulator-fixed";
+			regulator-name = "SD1_SPWR";
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3000000>;
+			gpio = <&gpio4 19 GPIO_ACTIVE_HIGH>;
+			off-on-delay = <3480>;
+			enable-active-high;
+		};
 	};
 };
 
@@ -224,7 +227,6 @@
 	status = "okay";
 	phy-reset-gpios = <&pca9557_a 4 GPIO_ACTIVE_LOW>;
 	phy-reset-duration = <10>;
-	phy-reset-post-delay = <150>;
 
 	mdio {
 		#address-cells = <1>;

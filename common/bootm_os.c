@@ -260,7 +260,7 @@ static int do_bootm_plan9(int flag, int argc, char * const argv[],
 #if defined(CONFIG_BOOTM_VXWORKS) && \
 	(defined(CONFIG_PPC) || defined(CONFIG_ARM))
 
-static void do_bootvx_fdt(bootm_headers_t *images)
+void do_bootvx_fdt(bootm_headers_t *images)
 {
 #if defined(CONFIG_OF_LIBFDT)
 	int ret;
@@ -317,8 +317,8 @@ static void do_bootvx_fdt(bootm_headers_t *images)
 	puts("## vxWorks terminated\n");
 }
 
-int do_bootm_vxworks(int flag, int argc, char * const argv[],
-		     bootm_headers_t *images)
+static int do_bootm_vxworks(int flag, int argc, char * const argv[],
+			     bootm_headers_t *images)
 {
 	if (flag != BOOTM_STATE_OS_GO)
 		return 0;
@@ -482,7 +482,7 @@ static boot_os_fn *boot_os[] = {
 	[IH_OS_PLAN9] = do_bootm_plan9,
 #endif
 #if defined(CONFIG_BOOTM_VXWORKS) && \
-	(defined(CONFIG_PPC) || defined(CONFIG_ARM) || defined(CONFIG_RISCV))
+	(defined(CONFIG_PPC) || defined(CONFIG_ARM))
 	[IH_OS_VXWORKS] = do_bootm_vxworks,
 #endif
 #if defined(CONFIG_CMD_ELF)

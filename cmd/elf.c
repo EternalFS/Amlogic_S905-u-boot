@@ -53,8 +53,7 @@ static unsigned long load_elf64_image_phdr(unsigned long addr)
 		if (phdr->p_filesz != phdr->p_memsz)
 			memset(dst + phdr->p_filesz, 0x00,
 			       phdr->p_memsz - phdr->p_filesz);
-		flush_cache(rounddown((unsigned long)dst, ARCH_DMA_MINALIGN),
-			    roundup(phdr->p_memsz, ARCH_DMA_MINALIGN));
+		flush_cache((unsigned long)dst, phdr->p_filesz);
 		++phdr;
 	}
 
@@ -168,8 +167,7 @@ static unsigned long load_elf_image_phdr(unsigned long addr)
 		if (phdr->p_filesz != phdr->p_memsz)
 			memset(dst + phdr->p_filesz, 0x00,
 			       phdr->p_memsz - phdr->p_filesz);
-		flush_cache(rounddown((unsigned long)dst, ARCH_DMA_MINALIGN),
-			    roundup(phdr->p_memsz, ARCH_DMA_MINALIGN));
+		flush_cache((unsigned long)dst, phdr->p_filesz);
 		++phdr;
 	}
 

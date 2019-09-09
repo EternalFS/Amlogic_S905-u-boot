@@ -34,8 +34,7 @@
 # error "Please define CONFIG_SH_ETHER_PHY_ADDR"
 #endif
 
-#if defined(CONFIG_SH_ETHER_CACHE_WRITEBACK) && \
-	!CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
+#if defined(CONFIG_SH_ETHER_CACHE_WRITEBACK) && !defined(CONFIG_SYS_DCACHE_OFF)
 #define flush_cache_wback(addr, len)    \
 		flush_dcache_range((u32)addr, \
 		(u32)(addr + ALIGN(len, CONFIG_SH_ETHER_ALIGNE_SIZE)))
@@ -426,7 +425,7 @@ static int sh_eth_phy_regs_config(struct sh_eth_dev *eth)
 		sh_eth_write(port_info, GECMR_100B, GECMR);
 #elif defined(CONFIG_CPU_SH7757) || defined(CONFIG_CPU_SH7752)
 		sh_eth_write(port_info, 1, RTRATE);
-#elif defined(CONFIG_RCAR_GEN2)
+#elif defined(CONFIG_CPU_SH7724) || defined(CONFIG_RCAR_GEN2)
 		val = ECMR_RTM;
 #endif
 	} else if (phy->speed == 10) {
@@ -770,9 +769,19 @@ static int sh_ether_start(struct udevice *dev)
 	struct sh_eth_dev *eth = &priv->shdev;
 	int ret;
 
-	ret = sh_eth_init_common(eth, pdata->enetaddr);
+	ret = clk_enable(&priv->clk);
 	if (ret)
 		return ret;
+
+	ret = sh_eth_init_common(eth, pdata->enetaddr);
+	if (ret)
+		goto err_clk;
+
+	ret = sh_eth_phy_config(dev);
+	if (ret) {
+		printf(SHETHER_NAME ": phy config timeout\n");
+		goto err_start;
+	}
 
 	ret = sh_eth_start_common(eth);
 	if (ret)
@@ -783,17 +792,17 @@ static int sh_ether_start(struct udevice *dev)
 err_start:
 	sh_eth_tx_desc_free(eth);
 	sh_eth_rx_desc_free(eth);
+err_clk:
+	clk_disable(&priv->clk);
 	return ret;
 }
 
 static void sh_ether_stop(struct udevice *dev)
 {
 	struct sh_ether_priv *priv = dev_get_priv(dev);
-	struct sh_eth_dev *eth = &priv->shdev;
-	struct sh_eth_info *port_info = &eth->port_info[eth->port];
 
-	phy_shutdown(port_info->phydev);
 	sh_eth_stop(&priv->shdev);
+	clk_disable(&priv->clk);
 }
 
 static int sh_ether_probe(struct udevice *udev)
@@ -807,11 +816,9 @@ static int sh_ether_probe(struct udevice *udev)
 
 	priv->iobase = pdata->iobase;
 
-#if CONFIG_IS_ENABLED(CLK)
 	ret = clk_get_by_index(udev, 0, &priv->clk);
 	if (ret < 0)
 		return ret;
-#endif
 
 	ret = dev_read_phandle_with_args(udev, "phy-handle", NULL, 0, 0, &phandle_args);
 	if (!ret) {
@@ -846,24 +853,8 @@ static int sh_ether_probe(struct udevice *udev)
 	eth->port_info[eth->port].iobase =
 		(void __iomem *)(BASE_IO_ADDR + 0x800 * eth->port);
 
-#if CONFIG_IS_ENABLED(CLK)
-	ret = clk_enable(&priv->clk);
-	if (ret)
-		goto err_mdio_register;
-#endif
-
-	ret = sh_eth_phy_config(udev);
-	if (ret) {
-		printf(SHETHER_NAME ": phy config timeout\n");
-		goto err_phy_config;
-	}
-
 	return 0;
 
-err_phy_config:
-#if CONFIG_IS_ENABLED(CLK)
-	clk_disable(&priv->clk);
-#endif
 err_mdio_register:
 	mdio_free(mdiodev);
 	return ret;
@@ -875,9 +866,6 @@ static int sh_ether_remove(struct udevice *udev)
 	struct sh_eth_dev *eth = &priv->shdev;
 	struct sh_eth_info *port_info = &eth->port_info[eth->port];
 
-#if CONFIG_IS_ENABLED(CLK)
-	clk_disable(&priv->clk);
-#endif
 	free(port_info->phydev);
 	mdio_unregister(priv->bus);
 	mdio_free(priv->bus);
@@ -926,7 +914,6 @@ int sh_ether_ofdata_to_platdata(struct udevice *dev)
 }
 
 static const struct udevice_id sh_ether_ids[] = {
-	{ .compatible = "renesas,ether-r7s72100" },
 	{ .compatible = "renesas,ether-r8a7790" },
 	{ .compatible = "renesas,ether-r8a7791" },
 	{ .compatible = "renesas,ether-r8a7793" },

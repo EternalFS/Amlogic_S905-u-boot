@@ -165,7 +165,6 @@ static void fit_image_print_data(const void *fit, int noffset, const char *p,
 	uint8_t *value;
 	int value_len;
 	char *algo;
-	const char *padding;
 	int required;
 	int ret, i;
 
@@ -184,10 +183,6 @@ static void fit_image_print_data(const void *fit, int noffset, const char *p,
 	if (required)
 		printf(" (required)");
 	printf("\n");
-
-	padding = fdt_getprop(fit, noffset, "padding", NULL);
-	if (padding)
-		printf("%s  %s padding: %s\n", p, type, padding);
 
 	ret = fit_image_hash_get_value(fit, noffset, &value,
 				       &value_len);
@@ -2118,18 +2113,6 @@ int boot_get_fdt_fit(bootm_headers_t *images, ulong addr,
 			if (next_config)
 				*next_config++ = '\0';
 			uname = NULL;
-
-			/*
-			 * fit_image_load() would load the first FDT from the
-			 * extra config only when uconfig is specified.
-			 * Check if the extra config contains multiple FDTs and
-			 * if so, load them.
-			 */
-			cfg_noffset = fit_conf_get_node(fit, uconfig);
-
-			i = 0;
-			count = fit_conf_get_prop_node_count(fit, cfg_noffset,
-							     FIT_FDT_PROP);
 		}
 
 		debug("%d: using uname=%s uconfig=%s\n", i, uname, uconfig);

@@ -10,7 +10,6 @@
  */
 
 #include <common.h>
-#include <bloblist.h>
 #include <console.h>
 #include <cpu.h>
 #include <dm.h>
@@ -24,9 +23,7 @@
 #include <os.h>
 #include <post.h>
 #include <relocate.h>
-#ifdef CONFIG_SPL
-#include <spl.h>
-#endif
+#include <spi.h>
 #include <status_led.h>
 #include <sysreset.h>
 #include <timer.h>
@@ -94,7 +91,7 @@ static int init_func_watchdog_init(void)
 {
 # if defined(CONFIG_HW_WATCHDOG) && \
 	(defined(CONFIG_M68K) || defined(CONFIG_MICROBLAZE) || \
-	defined(CONFIG_SH) || \
+	defined(CONFIG_SH) || defined(CONFIG_AT91SAM9_WATCHDOG) || \
 	defined(CONFIG_DESIGNWARE_WATCHDOG) || \
 	defined(CONFIG_IMX_WATCHDOG))
 	hw_watchdog_init();
@@ -190,7 +187,7 @@ static int print_cpuinfo(void)
 		return ret;
 	}
 
-	printf("CPU:   %s\n", desc);
+	printf("%s", desc);
 
 	return 0;
 }
@@ -261,6 +258,16 @@ __weak int init_func_vid(void)
 }
 #endif
 
+#if defined(CONFIG_HARD_SPI)
+static int init_func_spi(void)
+{
+	puts("SPI:   ");
+	spi_init();
+	puts("ready\n");
+	return 0;
+}
+#endif
+
 static int setup_mon_len(void)
 {
 #if defined(__ARM__) || defined(__MICROBLAZE__)
@@ -275,17 +282,6 @@ static int setup_mon_len(void)
 	/* TODO: use (ulong)&__bss_end - (ulong)&__text_start; ? */
 	gd->mon_len = (ulong)&__bss_end - CONFIG_SYS_MONITOR_BASE;
 #endif
-	return 0;
-}
-
-static int setup_spl_handoff(void)
-{
-#if CONFIG_IS_ENABLED(HANDOFF)
-	gd->spl_handoff = bloblist_find(BLOBLISTT_SPL_HANDOFF,
-					sizeof(struct spl_handoff));
-	debug("Found SPL hand-off info %p\n", gd->spl_handoff);
-#endif
-
 	return 0;
 }
 
@@ -381,7 +377,7 @@ static int reserve_round_4k(void)
 #ifdef CONFIG_ARM
 __weak int reserve_mmu(void)
 {
-#if !(CONFIG_IS_ENABLED(SYS_ICACHE_OFF) && CONFIG_IS_ENABLED(SYS_DCACHE_OFF))
+#if !(defined(CONFIG_SYS_ICACHE_OFF) && defined(CONFIG_SYS_DCACHE_OFF))
 	/* reserve TLB table */
 	gd->arch.tlb_size = PGTABLE_SIZE;
 	gd->relocaddr -= gd->arch.tlb_size;
@@ -564,16 +560,6 @@ static int reserve_stacks(void)
 	return arch_reserve_stacks();
 }
 
-static int reserve_bloblist(void)
-{
-#ifdef CONFIG_BLOBLIST
-	gd->start_addr_sp -= CONFIG_BLOBLIST_SIZE;
-	gd->new_bloblist = map_sysmem(gd->start_addr_sp, CONFIG_BLOBLIST_SIZE);
-#endif
-
-	return 0;
-}
-
 static int display_new_sp(void)
 {
 	debug("New Stack Pointer is: %08lx\n", gd->start_addr_sp);
@@ -680,24 +666,6 @@ static int reloc_bootstage(void)
 	return 0;
 }
 
-static int reloc_bloblist(void)
-{
-#ifdef CONFIG_BLOBLIST
-	if (gd->flags & GD_FLG_SKIP_RELOC)
-		return 0;
-	if (gd->new_bloblist) {
-		int size = CONFIG_BLOBLIST_SIZE;
-
-		debug("Copying bloblist from %p to %p, size %x\n",
-		      gd->bloblist, gd->new_bloblist, size);
-		memcpy(gd->new_bloblist, gd->bloblist, size);
-		gd->bloblist = gd->new_bloblist;
-	}
-#endif
-
-	return 0;
-}
-
 static int setup_reloc(void)
 {
 	if (gd->flags & GD_FLG_SKIP_RELOC) {
@@ -714,7 +682,7 @@ static int setup_reloc(void)
 	 * just after the default vector table location, so at 0x400
 	 */
 	gd->reloc_off = gd->relocaddr - (CONFIG_SYS_TEXT_BASE + 0x400);
-#elif !defined(CONFIG_SANDBOX)
+#else
 	gd->reloc_off = gd->relocaddr - CONFIG_SYS_TEXT_BASE;
 #endif
 #endif
@@ -845,10 +813,6 @@ static const init_fnc_t init_sequence_f[] = {
 	initf_malloc,
 	log_init,
 	initf_bootstage,	/* uses its own timer, so does not need DM */
-#ifdef CONFIG_BLOBLIST
-	bloblist_init,
-#endif
-	setup_spl_handoff,
 	initf_console_record,
 #if defined(CONFIG_HAVE_FSP)
 	arch_fsp_init,
@@ -902,6 +866,9 @@ static const init_fnc_t init_sequence_f[] = {
 #if defined(CONFIG_VID) && !defined(CONFIG_SPL)
 	init_func_vid,
 #endif
+#if defined(CONFIG_HARD_SPI)
+	init_func_spi,
+#endif
 	announce_dram_init,
 	dram_init,		/* configure available RAM banks */
 #ifdef CONFIG_POST
@@ -946,7 +913,6 @@ static const init_fnc_t init_sequence_f[] = {
 	reserve_global_data,
 	reserve_fdt,
 	reserve_bootstage,
-	reserve_bloblist,
 	reserve_arch,
 	reserve_stacks,
 	dram_init_banksize,
@@ -966,7 +932,6 @@ static const init_fnc_t init_sequence_f[] = {
 	INIT_FUNC_WATCHDOG_RESET
 	reloc_fdt,
 	reloc_bootstage,
-	reloc_bloblist,
 	setup_reloc,
 #if defined(CONFIG_X86) || defined(CONFIG_ARC)
 	copy_uboot_to_ram,

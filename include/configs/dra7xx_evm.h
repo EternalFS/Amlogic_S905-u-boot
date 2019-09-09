@@ -53,7 +53,7 @@
 
 #ifdef CONFIG_SPL_BUILD
 #undef CONFIG_CMD_BOOTD
-#ifdef CONFIG_SPL_DFU
+#ifdef CONFIG_SPL_DFU_SUPPORT
 #define CONFIG_SPL_LOAD_FIT_ADDRESS 0x80200000
 #define DFUARGS \
 	"dfu_bufsiz=0x10000\0" \
@@ -72,6 +72,12 @@
 #define CONFIG_NET_RETRY_COUNT		10
 #define CONFIG_PHY_TI
 
+/* SPI */
+#define CONFIG_TI_SPI_MMAP
+#define CONFIG_SF_DEFAULT_SPEED                76800000
+#define CONFIG_SF_DEFAULT_MODE                 SPI_MODE_0
+#define CONFIG_QSPI_QUAD_SUPPORT
+
 /*
  * Default to using SPI for environment, etc.
  * 0x000000 - 0x040000 : QSPI.SPL (256KiB)
@@ -87,6 +93,7 @@
 #define CONFIG_SYS_SPI_ARGS_SIZE	0x80000
 #if defined(CONFIG_QSPI_BOOT)
 #define CONFIG_SYS_REDUNDAND_ENVIRONMENT
+#define CONFIG_ENV_SPI_MAX_HZ           CONFIG_SF_DEFAULT_SPEED
 #define CONFIG_ENV_SIZE			(64 << 10)
 #define CONFIG_ENV_SECT_SIZE		(64 << 10) /* 64 KB sectors */
 #define CONFIG_ENV_OFFSET		0x1C0000
@@ -94,7 +101,10 @@
 #endif
 
 /* SPI SPL */
+#define CONFIG_TI_EDMA3
 #define CONFIG_SYS_SPI_U_BOOT_OFFS     0x40000
+
+#define CONFIG_SUPPORT_EMMC_BOOT
 
 /* USB xHCI HOST */
 #define CONFIG_USB_XHCI_OMAP
@@ -126,7 +136,7 @@
 					 50, 51, 52, 53, 54, 55, 56, 57, }
 #define CONFIG_SYS_NAND_ECCSIZE		512
 #define CONFIG_SYS_NAND_ECCBYTES	14
-#define CONFIG_SYS_NAND_U_BOOT_OFFS	0x00140000
+#define CONFIG_SYS_NAND_U_BOOT_OFFS	0x000c0000
 /* NAND: SPL related configs */
 /* NAND: SPL falcon mode configs */
 #ifdef CONFIG_SPL_OS_BOOT

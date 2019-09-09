@@ -15,15 +15,6 @@
 #define CONFIG_SYS_BOOTM_LEN	(64 << 20)
 #endif
 
-__weak void board_spl_fit_post_load(ulong load_addr, size_t length)
-{
-}
-
-__weak ulong board_spl_fit_size_align(ulong size)
-{
-	return size;
-}
-
 /**
  * spl_fit_get_image_name(): By using the matching configuration subnode,
  * retrieve the name of an image, specified by a property name and an index
@@ -333,7 +324,7 @@ static int spl_fit_record_loadable(const void *fit, int images, int index,
 
 static int spl_fit_image_get_os(const void *fit, int noffset, uint8_t *os)
 {
-#if CONFIG_IS_ENABLED(FIT_IMAGE_TINY) && !defined(CONFIG_SPL_OS_BOOT)
+#if CONFIG_IS_ENABLED(FIT_IMAGE_TINY)
 	return -ENOTSUPP;
 #else
 	return fit_image_get_os(fit, noffset, os);
@@ -359,7 +350,6 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 	 */
 	size = fdt_totalsize(fit);
 	size = (size + 3) & ~3;
-	size = board_spl_fit_size_align(size);
 	base_offset = (size + 3) & ~3;
 
 	/*
@@ -383,9 +373,8 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 	fit = spl_get_load_buffer(-hsize, hsize);
 	sectors = get_aligned_image_size(info, size, 0);
 	count = info->read(info, sector, sectors, fit);
-	debug("fit read sector %lx, sectors=%d, dst=%p, count=%lu, size=0x%lx\n",
-	      sector, sectors, fit, count, size);
-
+	debug("fit read sector %lx, sectors=%d, dst=%p, count=%lu\n",
+	      sector, sectors, fit, count);
 	if (count == 0)
 		return -EIO;
 
@@ -491,10 +480,6 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 
 		if (!spl_fit_image_get_os(fit, node, &os_type))
 			debug("Loadable is %s\n", genimg_get_os_name(os_type));
-#if CONFIG_IS_ENABLED(FIT_IMAGE_TINY)
-		else
-			os_type = IH_OS_U_BOOT;
-#endif
 
 		if (os_type == IH_OS_U_BOOT) {
 			spl_fit_append_fdt(&image_info, info, sector,
@@ -524,12 +509,6 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 	 */
 	if (spl_image->entry_point == FDT_ERROR || spl_image->entry_point == 0)
 		spl_image->entry_point = spl_image->load_addr;
-
-	spl_image->flags |= SPL_FIT_FOUND;
-
-#ifdef CONFIG_SECURE_BOOT
-	board_spl_fit_post_load((ulong)fit, size);
-#endif
 
 	return 0;
 }

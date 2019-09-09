@@ -16,6 +16,7 @@
 #include <efi_loader.h>
 #include <div64.h>
 #include <hexdump.h>
+#include <uuid.h>
 #include <stdarg.h>
 #include <linux/ctype.h>
 #include <linux/err.h>
@@ -278,25 +279,18 @@ static char *string(char *buf, char *end, char *s, int field_width,
 static char *string16(char *buf, char *end, u16 *s, int field_width,
 		int precision, int flags)
 {
-	const u16 *str = s ? s : L"<NULL>";
-	ssize_t i, len = utf16_strnlen(str, precision);
+	u16 *str = s ? s : L"<NULL>";
+	ssize_t len = utf16_strnlen(str, precision);
 
 	if (!(flags & LEFT))
 		for (; len < field_width; --field_width)
 			ADDCH(buf, ' ');
-	for (i = 0; i < len && buf + utf16_utf8_strnlen(str, 1) <= end; ++i) {
-		s32 s = utf16_get(&str);
-
-		if (s < 0)
-			s = '?';
-		utf8_put(s, &buf);
-	}
+	utf16_utf8_strncpy(&buf, str, len);
 	for (; len < field_width; --field_width)
 		ADDCH(buf, ' ');
 	return buf;
 }
 
-#if CONFIG_IS_ENABLED(EFI_DEVICE_PATH_TO_TEXT)
 static char *device_path_string(char *buf, char *end, void *dp, int field_width,
 				int precision, int flags)
 {
@@ -314,7 +308,6 @@ static char *device_path_string(char *buf, char *end, void *dp, int field_width,
 	efi_free_pool(str);
 	return buf;
 }
-#endif
 #endif
 
 #ifdef CONFIG_CMD_NET
@@ -453,11 +446,12 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 
 	switch (*fmt) {
 /* Device paths only exist in the EFI context. */
-#if CONFIG_IS_ENABLED(EFI_DEVICE_PATH_TO_TEXT) && !defined(API_BUILD)
+#if CONFIG_IS_ENABLED(EFI_LOADER) && !defined(API_BUILD)
 	case 'D':
 		return device_path_string(buf, end, ptr, field_width,
 					  precision, flags);
 #endif
+#ifdef CONFIG_CMD_NET
 	case 'a':
 		flags |= SPECIAL | ZEROPAD;
 
@@ -469,7 +463,6 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 			break;
 		}
 		break;
-#ifdef CONFIG_CMD_NET
 	case 'm':
 		flags |= SPECIAL;
 		/* Fallthrough */

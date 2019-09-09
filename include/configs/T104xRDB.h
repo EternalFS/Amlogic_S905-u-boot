@@ -21,6 +21,7 @@
 #endif
 
 #define CONFIG_SPL_FLUSH_IMAGE
+#define CONFIG_SPL_TEXT_BASE		0xFFFD8000
 #define CONFIG_SPL_PAD_TO		0x40000
 #define CONFIG_SPL_MAX_SIZE		0x28000
 #ifdef CONFIG_SPL_BUILD
@@ -520,6 +521,13 @@ $(SRCTREE)/board/freescale/t104xrdb/t1042d4_sd_rcw.cfg
 /*
  * eSPI - Enhanced SPI
  */
+#define CONFIG_SPI_FLASH_BAR
+#define CONFIG_SF_DEFAULT_SPEED         10000000
+#define CONFIG_SF_DEFAULT_MODE          0
+#define CONFIG_ENV_SPI_BUS              0
+#define CONFIG_ENV_SPI_CS               0
+#define CONFIG_ENV_SPI_MAX_HZ           10000000
+#define CONFIG_ENV_SPI_MODE             0
 
 /*
  * General PCI
@@ -635,6 +643,7 @@ $(SRCTREE)/board/freescale/t104xrdb/t1042d4_sd_rcw.cfg
 #define CONFIG_SYS_DPAA_FMAN
 #define CONFIG_SYS_DPAA_PME
 
+#define CONFIG_QE
 #define CONFIG_U_QE
 
 /* Default address of microcode for the Linux Fman driver */
@@ -643,6 +652,7 @@ $(SRCTREE)/board/freescale/t104xrdb/t1042d4_sd_rcw.cfg
  * env is stored at 0x100000, sector size is 0x10000, ucode is stored after
  * env, so we got 0x110000.
  */
+#define CONFIG_SYS_QE_FW_IN_SPIFLASH
 #define CONFIG_SYS_FMAN_FW_ADDR	0x110000
 #elif defined(CONFIG_SDCARD)
 /*
@@ -650,10 +660,13 @@ $(SRCTREE)/board/freescale/t104xrdb/t1042d4_sd_rcw.cfg
  * about 1MB (2048 blocks), Env is stored after the image, and the env size is
  * 0x2000 (16 blocks), 8 + 2048 + 16 = 2072, enlarge it to 2080.
  */
+#define CONFIG_SYS_QE_FMAN_FW_IN_MMC
 #define CONFIG_SYS_FMAN_FW_ADDR	(512 * 0x820)
 #elif defined(CONFIG_NAND)
+#define CONFIG_SYS_QE_FMAN_FW_IN_NAND
 #define CONFIG_SYS_FMAN_FW_ADDR	(5 * CONFIG_SYS_NAND_BLOCK_SIZE)
 #else
+#define CONFIG_SYS_QE_FMAN_FW_IN_NOR
 #define CONFIG_SYS_FMAN_FW_ADDR		0xEFF00000
 #endif
 
@@ -672,6 +685,7 @@ $(SRCTREE)/board/freescale/t104xrdb/t1042d4_sd_rcw.cfg
 #endif /* CONFIG_NOBQFMAN */
 
 #ifdef CONFIG_SYS_DPAA_FMAN
+#define CONFIG_FMAN_ENET
 #define CONFIG_PHY_VITESSE
 #define CONFIG_PHY_REALTEK
 #endif

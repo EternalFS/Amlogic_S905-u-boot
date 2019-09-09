@@ -93,7 +93,7 @@ void save_omap_boot_params(void)
 			sys_boot_device = 1;
 			break;
 #endif
-#if defined(BOOT_DEVICE_USB) && !defined(CONFIG_SPL_USB_STORAGE)
+#if defined(BOOT_DEVICE_USB) && !defined(CONFIG_SPL_USB_SUPPORT)
 		case BOOT_DEVICE_USB:
 			sys_boot_device = 1;
 			break;
@@ -108,7 +108,7 @@ void save_omap_boot_params(void)
 			sys_boot_device = 1;
 			break;
 #endif
-#if defined(BOOT_DEVICE_DFU) && !defined(CONFIG_SPL_DFU)
+#if defined(BOOT_DEVICE_DFU) && !defined(CONFIG_SPL_DFU_SUPPORT)
 		case BOOT_DEVICE_DFU:
 			sys_boot_device = 1;
 			break;

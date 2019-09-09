@@ -40,7 +40,7 @@
 /* Console configuration */
 
 #define CONFIG_BOOTCOMMAND		"run distro_bootcmd ; run autoboot"
-#define CONFIG_DEFAULT_CONSOLE		"console=ttySAC1,115200n8\0"
+#define CONFIG_DEFAULT_CONSOLE		"ttySAC1,115200n8"
 
 #define CONFIG_SYS_INIT_SP_ADDR	(CONFIG_SYS_LOAD_ADDR \
 					- GENERATED_GBL_DATA_SIZE)
@@ -132,7 +132,7 @@
 		"setenv kernelname Image.itb;" \
 		"run loadkernel;" \
 		"run kernel_args;" \
-		"bootm ${kernel_addr_r}#${board_name}\0" \
+		"bootm ${kernel_addr_r}#${boardname}\0" \
 	"boot_uimg=" \
 		"setenv kernelname uImage;" \
 		"run check_dtb;" \
@@ -157,7 +157,7 @@
 		"elif test -e mmc 0 uImage; then; " \
 			"run boot_uimg;" \
 		"fi;\0" \
-	"console=" CONFIG_DEFAULT_CONSOLE \
+	"console=" CONFIG_DEFAULT_CONSOLE "\0" \
 	"mmcbootdev=0\0" \
 	"mmcbootpart=1\0" \
 	"mmcrootdev=0\0" \
@@ -186,6 +186,7 @@
  * TODO: Add Odroid X support
  */
 #define CONFIG_MISC_COMMON
+#define CONFIG_BOARD_TYPES
 
 #undef CONFIG_REVISION_TAG
 

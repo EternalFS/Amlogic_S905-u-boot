@@ -8,8 +8,6 @@
 #ifndef _ASM_RISCV_CSR_H
 #define _ASM_RISCV_CSR_H
 
-#include <linux/const.h>
-
 /* Status register flags */
 #define SR_SIE		_AC(0x00000002, UL) /* Supervisor Interrupt Enable */
 #define SR_SPIE		_AC(0x00000020, UL) /* Previous Supervisor IE */
@@ -46,7 +44,6 @@
 #endif
 
 /* Interrupt Enable and Interrupt Pending flags */
-#define MIE_MSIE	_AC(0x00000008, UL) /* Software Interrupt Enable */
 #define SIE_SSIE	_AC(0x00000002, UL) /* Software Interrupt Enable */
 #define SIE_STIE	_AC(0x00000020, UL) /* Timer Interrupt Enable */
 
@@ -62,12 +59,10 @@
 
 #ifndef __ASSEMBLY__
 
-#define xcsr(csr)	#csr
-
 #define csr_swap(csr, val)					\
 ({								\
 	unsigned long __v = (unsigned long)(val);		\
-	__asm__ __volatile__ ("csrrw %0, " xcsr(csr) ", %1"	\
+	__asm__ __volatile__ ("csrrw %0, " #csr ", %1"		\
 			      : "=r" (__v) : "rK" (__v)		\
 			      : "memory");			\
 	__v;							\
@@ -76,7 +71,7 @@
 #define csr_read(csr)						\
 ({								\
 	register unsigned long __v;				\
-	__asm__ __volatile__ ("csrr %0, " xcsr(csr)		\
+	__asm__ __volatile__ ("csrr %0, " #csr			\
 			      : "=r" (__v) :			\
 			      : "memory");			\
 	__v;							\
@@ -85,7 +80,7 @@
 #define csr_write(csr, val)					\
 ({								\
 	unsigned long __v = (unsigned long)(val);		\
-	__asm__ __volatile__ ("csrw " xcsr(csr) ", %0"		\
+	__asm__ __volatile__ ("csrw " #csr ", %0"		\
 			      : : "rK" (__v)			\
 			      : "memory");			\
 })
@@ -93,7 +88,7 @@
 #define csr_read_set(csr, val)					\
 ({								\
 	unsigned long __v = (unsigned long)(val);		\
-	__asm__ __volatile__ ("csrrs %0, " xcsr(csr) ", %1"	\
+	__asm__ __volatile__ ("csrrs %0, " #csr ", %1"		\
 			      : "=r" (__v) : "rK" (__v)		\
 			      : "memory");			\
 	__v;							\
@@ -102,7 +97,7 @@
 #define csr_set(csr, val)					\
 ({								\
 	unsigned long __v = (unsigned long)(val);		\
-	__asm__ __volatile__ ("csrs " xcsr(csr) ", %0"		\
+	__asm__ __volatile__ ("csrs " #csr ", %0"		\
 			      : : "rK" (__v)			\
 			      : "memory");			\
 })
@@ -110,7 +105,7 @@
 #define csr_read_clear(csr, val)				\
 ({								\
 	unsigned long __v = (unsigned long)(val);		\
-	__asm__ __volatile__ ("csrrc %0, " xcsr(csr) ", %1"	\
+	__asm__ __volatile__ ("csrrc %0, " #csr ", %1"		\
 			      : "=r" (__v) : "rK" (__v)		\
 			      : "memory");			\
 	__v;							\
@@ -119,7 +114,7 @@
 #define csr_clear(csr, val)					\
 ({								\
 	unsigned long __v = (unsigned long)(val);		\
-	__asm__ __volatile__ ("csrc " xcsr(csr) ", %0"		\
+	__asm__ __volatile__ ("csrc " #csr ", %0"		\
 			      : : "rK" (__v)			\
 			      : "memory");			\
 })

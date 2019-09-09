@@ -155,6 +155,7 @@ U_BOOT_DRIVER(serial_dcc) = {
 	.id	= UCLASS_SERIAL,
 	.of_match = arm_dcc_ids,
 	.ops	= &arm_dcc_ops,
+	.flags = DM_FLAG_PRE_RELOC,
 };
 
 #ifdef CONFIG_DEBUG_UART_ARM_DCC

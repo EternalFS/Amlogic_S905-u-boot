@@ -18,7 +18,7 @@ static efi_guid_t table_guid =
 		 0x17, 0x2e, 0x51, 0x6b, 0x49, 0x75);
 
 /*
- * Notification function, increments the notification count if parameter
+ * Notification function, increments the notfication count if parameter
  * context is provided.
  *
  * @event	notified event
@@ -33,23 +33,23 @@ static void EFIAPI notify(struct efi_event *event, void *context)
 }
 
 /*
- * Check CRC32 of a table.
+ * Check crc32 of a table.
  */
 static int check_table(const void *table)
 {
 	efi_status_t ret;
 	u32 crc32, res;
-	/* Casting from constant to not constant */
+	/* Casting from const to not const */
 	struct efi_table_hdr *hdr = (struct efi_table_hdr *)table;
 
 	crc32 = hdr->crc32;
 	/*
-	 * Setting the CRC32 of the 'const' table to zero is easier than
+	 * Setting the crc32 of the 'const' table to zero is easier than
 	 * copying
 	 */
 	hdr->crc32 = 0;
 	ret = boottime->calculate_crc32(table, hdr->headersize, &res);
-	/* Reset table CRC32 so it stays constant */
+	/* Reset table crc32 so it stays constant */
 	hdr->crc32 = crc32;
 	if (ret != EFI_ST_SUCCESS) {
 		efi_st_error("CalculateCrc32 failed\n");
@@ -153,8 +153,8 @@ static int execute(void)
 	}
 	table = NULL;
 	for (i = 0; i < sys_table->nr_tables; ++i) {
-		if (!memcmp(&sys_table->tables[i].guid, &table_guid,
-			    sizeof(efi_guid_t)))
+		if (!efi_st_memcmp(&sys_table->tables[i].guid, &table_guid,
+				   sizeof(efi_guid_t)))
 			table = sys_table->tables[i].table;
 	}
 	if (!table) {
@@ -192,8 +192,8 @@ static int execute(void)
 	table = NULL;
 	tabcnt = 0;
 	for (i = 0; i < sys_table->nr_tables; ++i) {
-		if (!memcmp(&sys_table->tables[i].guid, &table_guid,
-			    sizeof(efi_guid_t))) {
+		if (!efi_st_memcmp(&sys_table->tables[i].guid, &table_guid,
+				   sizeof(efi_guid_t))) {
 			table = sys_table->tables[i].table;
 			++tabcnt;
 		}
@@ -203,7 +203,7 @@ static int execute(void)
 		return EFI_ST_FAILURE;
 	}
 	if (tabcnt > 1) {
-		efi_st_error("Duplicate table GUID\n");
+		efi_st_error("Duplicate table guid\n");
 		return EFI_ST_FAILURE;
 	}
 	if (table != &tables[1]) {
@@ -235,8 +235,8 @@ static int execute(void)
 	}
 	table = NULL;
 	for (i = 0; i < sys_table->nr_tables; ++i) {
-		if (!memcmp(&sys_table->tables[i].guid, &table_guid,
-			    sizeof(efi_guid_t))) {
+		if (!efi_st_memcmp(&sys_table->tables[i].guid, &table_guid,
+				   sizeof(efi_guid_t))) {
 			table = sys_table->tables[i].table;
 		}
 	}

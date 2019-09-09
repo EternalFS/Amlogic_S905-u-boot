@@ -222,8 +222,6 @@ int dram_init(void)
 	ddrmc_init();
 #endif
 
-	erratum_a008850_post();
-
 	gd->ram_size = get_ram_size((void *)PHYS_SDRAM, PHYS_SDRAM_SIZE);
 
 #if defined(CONFIG_DEEP_SLEEP) && !defined(CONFIG_SPL_BUILD)
@@ -469,7 +467,6 @@ void board_init_f(ulong dummy)
 
 	preloader_console_init();
 
-	timer_init();
 	dram_init();
 
 	/* Allow OCRAM access permission as R/W */

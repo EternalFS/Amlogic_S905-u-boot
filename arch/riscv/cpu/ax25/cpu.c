@@ -6,7 +6,6 @@
 
 /* CPU specific code */
 #include <common.h>
-#include <asm/cache.h>
 
 /*
  * cleanup_before_linux() is called just before we call linux
@@ -19,9 +18,6 @@ int cleanup_before_linux(void)
 	disable_interrupts();
 
 	/* turn off I/D-cache */
-	cache_flush();
-	icache_disable();
-	dcache_disable();
 
 	return 0;
 }

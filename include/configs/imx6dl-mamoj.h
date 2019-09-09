@@ -51,6 +51,7 @@
 
 /* MMC */
 #define CONFIG_SYS_MMC_ENV_DEV		2
+#define CONFIG_SUPPORT_EMMC_BOOT
 
 /* Ethernet */
 #define CONFIG_FEC_MXC_PHYADDR		1

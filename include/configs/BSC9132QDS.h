@@ -32,6 +32,7 @@
 #define CONFIG_SPL_FLUSH_IMAGE
 #define CONFIG_SPL_TARGET		"u-boot-with-spl.bin"
 
+#define CONFIG_SPL_TEXT_BASE		0xFFFFE000
 #define CONFIG_SPL_MAX_SIZE		8192
 #define CONFIG_SPL_RELOC_TEXT_BASE	0x00100000
 #define CONFIG_SPL_RELOC_STACK		0x00100000
@@ -104,6 +105,7 @@
 #define CONFIG_SYS_SPD_BUS_NUM		0
 #define SPD_EEPROM_ADDRESS1		0x54 /* I2C access */
 #define SPD_EEPROM_ADDRESS2		0x56 /* I2C access */
+#define CONFIG_FSL_DDR_INTERACTIVE
 
 #define CONFIG_MEM_INIT_VALUE		0xDeadBeef
 
@@ -405,6 +407,10 @@ combinations. this should be removed later
  * used for SLIC
  */
 /* eSPI - Enhanced SPI */
+#ifdef CONFIG_FSL_ESPI
+#define CONFIG_SF_DEFAULT_SPEED		10000000
+#define CONFIG_SF_DEFAULT_MODE		SPI_MODE_0
+#endif
 
 #if defined(CONFIG_TSEC_ENET)
 
@@ -453,6 +459,10 @@ combinations. this should be removed later
 #define CONFIG_SYS_MMC_ENV_DEV		0
 #define CONFIG_ENV_SIZE			0x2000
 #elif defined(CONFIG_RAMBOOT_SPIFLASH)
+#define CONFIG_ENV_SPI_BUS	0
+#define CONFIG_ENV_SPI_CS	0
+#define CONFIG_ENV_SPI_MAX_HZ	10000000
+#define CONFIG_ENV_SPI_MODE	0
 #define CONFIG_ENV_OFFSET	0x100000	/* 1MB */
 #define CONFIG_ENV_SECT_SIZE	0x10000
 #define CONFIG_ENV_SIZE		0x2000

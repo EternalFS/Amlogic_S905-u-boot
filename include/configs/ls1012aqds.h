@@ -74,7 +74,9 @@
 
 /* DSPI */
 #define CONFIG_FSL_DSPI1
+#define CONFIG_DEFAULT_SPI_BUS 1
 
+#define CONFIG_CMD_SPI
 #define MMAP_DSPI          DSPI1_BASE_ADDR
 
 #define CONFIG_SYS_DSPI_CTAR0   1
@@ -97,6 +99,11 @@
 				DSPI_CTAR_DT(0))
 #define CONFIG_SPI_FLASH_EON /* cs3 */
 
+#define CONFIG_SF_DEFAULT_SPEED      10000000
+#define CONFIG_SF_DEFAULT_MODE       SPI_MODE_0
+#define CONFIG_SF_DEFAULT_BUS        1
+#define CONFIG_SF_DEFAULT_CS         0
+
 /*  MMC  */
 #ifdef CONFIG_MMC
 #define CONFIG_SYS_FSL_MMC_HAS_CAPBLT_VS33
@@ -110,5 +117,4 @@
 #define CONFIG_SYS_MEMTEST_START	0x80000000
 #define CONFIG_SYS_MEMTEST_END		0x9fffffff
 
-#include <asm/fsl_secure_boot.h>
 #endif /* __LS1012AQDS_H__ */

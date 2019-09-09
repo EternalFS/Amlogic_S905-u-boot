@@ -158,7 +158,7 @@ static int sc_ipc_write(struct mu_type *base, void *data)
 static int imx8_scu_call(struct udevice *dev, int no_resp, void *tx_msg,
 			 int tx_size, void *rx_msg, int rx_size)
 {
-	struct imx8_scu *plat = dev_get_platdata(dev);
+	struct imx8_scu *priv = dev_get_priv(dev);
 	sc_err_t result;
 	int ret;
 
@@ -166,11 +166,11 @@ static int imx8_scu_call(struct udevice *dev, int no_resp, void *tx_msg,
 	if (rx_msg && tx_msg != rx_msg)
 		printf("tx_msg %p, rx_msg %p\n", tx_msg, rx_msg);
 
-	ret = sc_ipc_write(plat->base, tx_msg);
+	ret = sc_ipc_write(priv->base, tx_msg);
 	if (ret)
 		return ret;
 	if (!no_resp) {
-		ret = sc_ipc_read(plat->base, rx_msg);
+		ret = sc_ipc_read(priv->base, rx_msg);
 		if (ret)
 			return ret;
 	}
@@ -182,28 +182,24 @@ static int imx8_scu_call(struct udevice *dev, int no_resp, void *tx_msg,
 
 static int imx8_scu_probe(struct udevice *dev)
 {
-	struct imx8_scu *plat = dev_get_platdata(dev);
+	struct imx8_scu *priv = dev_get_priv(dev);
 	fdt_addr_t addr;
 
-	debug("%s(dev=%p) (plat=%p)\n", __func__, dev, plat);
+	debug("%s(dev=%p) (priv=%p)\n", __func__, dev, priv);
 
 	addr = devfdt_get_addr(dev);
 	if (addr == FDT_ADDR_T_NONE)
 		return -EINVAL;
 
-#ifdef CONFIG_SPL_BUILD
-	plat->base = (struct mu_type *)CONFIG_MU_BASE_SPL;
-#else
-	plat->base = (struct mu_type *)addr;
-#endif
+	priv->base = (struct mu_type *)addr;
 
 	/* U-Boot not enable interrupts, so need to enable RX interrupts */
-	mu_hal_init(plat->base);
+	mu_hal_init(priv->base);
 
 	gd->arch.scu_dev = dev;
 
-	device_probe(plat->clk);
-	device_probe(plat->pinclk);
+	device_probe(priv->clk);
+	device_probe(priv->pinclk);
 
 	return 0;
 }
@@ -215,44 +211,34 @@ static int imx8_scu_remove(struct udevice *dev)
 
 static int imx8_scu_bind(struct udevice *dev)
 {
-	struct imx8_scu *plat = dev_get_platdata(dev);
+	struct imx8_scu *priv = dev_get_priv(dev);
 	int ret;
 	struct udevice *child;
 	int node;
-	char *clk_compatible, *iomuxc_compatible;
-
-	if (IS_ENABLED(CONFIG_IMX8QXP)) {
-		clk_compatible = "fsl,imx8qxp-clk";
-		iomuxc_compatible = "fsl,imx8qxp-iomuxc";
-	} else if (IS_ENABLED(CONFIG_IMX8QM)) {
-		clk_compatible = "fsl,imx8qm-clk";
-		iomuxc_compatible = "fsl,imx8qm-iomuxc";
-	} else {
-		return -EINVAL;
-	}
 
 	debug("%s(dev=%p)\n", __func__, dev);
 
-	node = fdt_node_offset_by_compatible(gd->fdt_blob, -1, clk_compatible);
+	node = fdt_node_offset_by_compatible(gd->fdt_blob, -1,
+					     "fsl,imx8qxp-clk");
 	if (node < 0)
 		panic("No clk node found\n");
 
-	ret = lists_bind_fdt(dev, offset_to_ofnode(node), &child, true);
+	ret = lists_bind_fdt(dev, offset_to_ofnode(node), &child);
 	if (ret)
 		return ret;
 
-	plat->clk = child;
+	priv->clk = child;
 
 	node = fdt_node_offset_by_compatible(gd->fdt_blob, -1,
-					     iomuxc_compatible);
+					     "fsl,imx8qxp-iomuxc");
 	if (node < 0)
 		panic("No iomuxc node found\n");
 
-	ret = lists_bind_fdt(dev, offset_to_ofnode(node), &child, true);
+	ret = lists_bind_fdt(dev, offset_to_ofnode(node), &child);
 	if (ret)
 		return ret;
 
-	plat->pinclk = child;
+	priv->pinclk = child;
 
 	return 0;
 }
@@ -275,6 +261,6 @@ U_BOOT_DRIVER(imx8_scu) = {
 	.bind		= imx8_scu_bind,
 	.remove		= imx8_scu_remove,
 	.ops		= &imx8_scu_ops,
-	.platdata_auto_alloc_size = sizeof(struct imx8_scu),
+	.priv_auto_alloc_size = sizeof(struct imx8_scu),
 	.flags		= DM_FLAG_PRE_RELOC,
 };

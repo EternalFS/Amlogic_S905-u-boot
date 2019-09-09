@@ -34,7 +34,6 @@
  * struct tee_version_data::gen_caps
  */
 #define TEE_SUCCESS			0x00000000
-#define TEE_ERROR_STORAGE_NOT_AVAILABLE	0xf0100003
 #define TEE_ERROR_GENERIC		0xffff0000
 #define TEE_ERROR_BAD_PARAMETERS	0xffff0006
 #define TEE_ERROR_ITEM_NOT_FOUND	0xffff0008
@@ -43,9 +42,7 @@
 #define TEE_ERROR_COMMUNICATION		0xffff000e
 #define TEE_ERROR_SECURITY		0xffff000f
 #define TEE_ERROR_OUT_OF_MEMORY		0xffff000c
-#define TEE_ERROR_OVERFLOW              0xffff300f
 #define TEE_ERROR_TARGET_DEAD		0xffff3024
-#define TEE_ERROR_STORAGE_NO_SPACE      0xffff3041
 
 #define TEE_ORIGIN_COMMS		0x00000002
 #define TEE_ORIGIN_TEE			0x00000003

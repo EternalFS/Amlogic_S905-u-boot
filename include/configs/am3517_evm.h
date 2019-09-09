@@ -12,6 +12,16 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
+/*
+ * 1MB into the SDRAM to allow for SPL's bss at the beginning of SDRAM
+ * 64 bytes before this address should be set aside for u-boot.img's
+ * header. That is 0x800FFFC0--0x80100000 should not be used for any
+ * other needs.
+ */
+
+#define CONFIG_SYS_SPL_MALLOC_START	0x80208000
+#define CONFIG_SYS_SPL_MALLOC_SIZE	0x100000
+
 #include <configs/ti_omap3_common.h>
 
 #undef CONFIG_DM_I2C_COMPAT
@@ -71,7 +81,6 @@
 #define CONFIG_SYS_NAND_MAX_ECCPOS	56
 #define CONFIG_SYS_NAND_U_BOOT_START	CONFIG_SYS_TEXT_BASE
 #define CONFIG_SYS_NAND_U_BOOT_OFFS	0x80000
-#define CONFIG_SYS_NAND_SPL_KERNEL_OFFS 0x2a0000
 /* NAND block size is 128 KiB.  Synchronize these values with
  * corresponding Device Tree entries in Linux:
  *  MLO(SPL)             4 * NAND_BLOCK_SIZE = 512 KiB  @ 0x000000
@@ -89,7 +98,7 @@
 
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	"loadaddr=0x82000000\0" \
-	"console=ttyS2,115200n8\0" \
+	"console=ttyO2,115200n8\0" \
 	"fdtfile=am3517-evm.dtb\0" \
 	"fdtaddr=0x82C00000\0" \
 	"vram=16M\0" \
@@ -167,6 +176,8 @@
 
 /* Physical Memory Map */
 #define CONFIG_SYS_CS0_SIZE		(256 * 1024 * 1024)
+#define CONFIG_SYS_INIT_RAM_ADDR	0x4020f800
+#define CONFIG_SYS_INIT_RAM_SIZE	0x800
 
 /* FLASH and environment organization */
 
@@ -189,6 +200,12 @@
 #define CONFIG_ENV_ADDR			0x260000
 
 /* Defines for SPL */
+#undef CONFIG_SPL_TEXT_BASE
+#define CONFIG_SPL_TEXT_BASE		0x40200000
+
+#undef CONFIG_SPL_BSS_START_ADDR
+#define CONFIG_SPL_BSS_START_ADDR	0x80000000
+#define CONFIG_SPL_BSS_MAX_SIZE		0x80000		/* 512 KB */
 
 #define CONFIG_SYS_MMCSD_FS_BOOT_PARTITION	1
 #define CONFIG_SPL_FS_LOAD_PAYLOAD_NAME		"u-boot.img"

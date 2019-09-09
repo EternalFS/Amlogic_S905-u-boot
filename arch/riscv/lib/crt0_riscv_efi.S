@@ -41,13 +41,13 @@ coff_header:
 	.short	2				/* nr_sections */
 	.long	0				/* TimeDateStamp */
 	.long	0				/* PointerToSymbolTable */
-	.long	0				/* NumberOfSymbols */
+	.long	1				/* NumberOfSymbols */
 	.short	section_table - optional_header	/* SizeOfOptionalHeader */
-	/* Characteristics */
-	.short	(IMAGE_FILE_EXECUTABLE_IMAGE | \
-		 IMAGE_FILE_LINE_NUMS_STRIPPED | \
-		 IMAGE_FILE_LOCAL_SYMS_STRIPPED | \
-		 IMAGE_FILE_DEBUG_STRIPPED)
+	/*
+	 * Characteristics: IMAGE_FILE_DEBUG_STRIPPED |
+	 * IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_LINE_NUMS_STRIPPED
+	 */
+	.short	0x206
 optional_header:
 	.short	0x20b				/* PE32+ format */
 	.byte	0x02				/* MajorLinkerVersion */

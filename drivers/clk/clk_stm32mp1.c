@@ -15,11 +15,9 @@
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <dt-bindings/clock/stm32mp1-clksrc.h>
 
-#ifndef CONFIG_STM32MP1_TRUSTED
 #if !defined(CONFIG_SPL) || defined(CONFIG_SPL_BUILD)
 /* activate clock tree initialization in the driver */
 #define STM32MP1_CLOCK_TREE_INIT
-#endif
 #endif
 
 #define MAX_HSI_HZ		64000000
@@ -106,7 +104,6 @@
 #define RCC_MP_APB2ENSETR	0XA08
 #define RCC_MP_APB3ENSETR	0xA10
 #define RCC_MP_AHB2ENSETR	0xA18
-#define RCC_MP_AHB3ENSETR	0xA20
 #define RCC_MP_AHB4ENSETR	0xA28
 
 /* used for most of SELR register */
@@ -167,7 +164,6 @@
 /* used for ALL PLLNCR registers */
 #define RCC_PLLNCR_PLLON	BIT(0)
 #define RCC_PLLNCR_PLLRDY	BIT(1)
-#define RCC_PLLNCR_SSCG_CTRL	BIT(2)
 #define RCC_PLLNCR_DIVPEN	BIT(4)
 #define RCC_PLLNCR_DIVQEN	BIT(5)
 #define RCC_PLLNCR_DIVREN	BIT(6)
@@ -244,6 +240,7 @@ enum stm32mp1_parent_id {
 	_LSI,
 	_LSE,
 	_I2S_CKIN,
+	_USB_PHY_48,
 	NB_OSC,
 
 /* other parent source */
@@ -275,7 +272,6 @@ enum stm32mp1_parent_id {
 	_CK_MPU,
 	_CK_MCU,
 	_DSI_PHY,
-	_USB_PHY_48,
 	_PARENT_NB,
 	_UNKNOWN_ID = 0xff,
 };
@@ -538,9 +534,6 @@ static const struct stm32mp1_clk_gate stm32mp1_clk_gate[] = {
 	STM32MP1_CLK_SET_CLR(RCC_MP_AHB2ENSETR, 8, USBO_K, _USBO_SEL),
 	STM32MP1_CLK_SET_CLR(RCC_MP_AHB2ENSETR, 16, SDMMC3_K, _SDMMC3_SEL),
 
-	STM32MP1_CLK_SET_CLR(RCC_MP_AHB3ENSETR, 11, HSEM, _UNKNOWN_SEL),
-	STM32MP1_CLK_SET_CLR(RCC_MP_AHB3ENSETR, 12, IPCC, _UNKNOWN_SEL),
-
 	STM32MP1_CLK_SET_CLR(RCC_MP_AHB4ENSETR, 0, GPIOA, _UNKNOWN_SEL),
 	STM32MP1_CLK_SET_CLR(RCC_MP_AHB4ENSETR, 1, GPIOB, _UNKNOWN_SEL),
 	STM32MP1_CLK_SET_CLR(RCC_MP_AHB4ENSETR, 2, GPIOC, _UNKNOWN_SEL),
@@ -669,8 +662,8 @@ static const u8 stm32mp1_axi_div[8] = {
 	1, 2, 3, 4, 4, 4, 4, 4
 };
 
-static const __maybe_unused
-char * const stm32mp1_clk_parent_name[_PARENT_NB] = {
+#ifdef DEBUG
+static const char * const stm32mp1_clk_parent_name[_PARENT_NB] = {
 	[_HSI] = "HSI",
 	[_HSE] = "HSE",
 	[_CSI] = "CSI",
@@ -708,8 +701,7 @@ char * const stm32mp1_clk_parent_name[_PARENT_NB] = {
 	[_DSI_PHY] = "DSI_PHY_PLL",
 };
 
-static const __maybe_unused
-char * const stm32mp1_clk_parent_sel_name[_PARENT_SEL_NB] = {
+static const char * const stm32mp1_clk_parent_sel_name[_PARENT_SEL_NB] = {
 	[_I2C12_SEL] = "I2C12",
 	[_I2C35_SEL] = "I2C35",
 	[_I2C46_SEL] = "I2C46",
@@ -728,6 +720,7 @@ char * const stm32mp1_clk_parent_sel_name[_PARENT_SEL_NB] = {
 	[_DSI_SEL] = "DSI",
 	[_ADC12_SEL] = "ADC12",
 };
+#endif
 
 static const struct stm32mp1_clk_data stm32mp1_data = {
 	.gate = stm32mp1_clk_gate,
@@ -1083,7 +1076,7 @@ static ulong stm32mp1_clk_get(struct stm32mp1_clk_priv *priv, int p)
 		break;
 	/* other */
 	case _USB_PHY_48:
-		clock = 48000000;
+		clock = stm32mp1_clk_get_fixed(priv, _USB_PHY_48);
 		break;
 	case _DSI_PHY:
 	{
@@ -1183,7 +1176,10 @@ static void stm32mp1_ls_osc_set(int enable, fdt_addr_t rcc, u32 offset,
 
 static void stm32mp1_hs_ocs_set(int enable, fdt_addr_t rcc, u32 mask_on)
 {
-	writel(mask_on, rcc + (enable ? RCC_OCENSETR : RCC_OCENCLRR));
+	if (enable)
+		setbits_le32(rcc + RCC_OCENSETR, mask_on);
+	else
+		setbits_le32(rcc + RCC_OCENCLRR, mask_on);
 }
 
 static int stm32mp1_osc_wait(int enable, fdt_addr_t rcc, u32 offset,
@@ -1254,20 +1250,20 @@ static void stm32mp1_lsi_set(fdt_addr_t rcc, int enable)
 static void stm32mp1_hse_enable(fdt_addr_t rcc, int bypass, int digbyp, int css)
 {
 	if (digbyp)
-		writel(RCC_OCENR_DIGBYP, rcc + RCC_OCENSETR);
+		setbits_le32(rcc + RCC_OCENSETR, RCC_OCENR_DIGBYP);
 	if (bypass || digbyp)
-		writel(RCC_OCENR_HSEBYP, rcc + RCC_OCENSETR);
+		setbits_le32(rcc + RCC_OCENSETR, RCC_OCENR_HSEBYP);
 
 	stm32mp1_hs_ocs_set(1, rcc, RCC_OCENR_HSEON);
 	stm32mp1_osc_wait(1, rcc, RCC_OCRDYR, RCC_OCRDYR_HSERDY);
 
 	if (css)
-		writel(RCC_OCENR_HSECSSON, rcc + RCC_OCENSETR);
+		setbits_le32(rcc + RCC_OCENSETR, RCC_OCENR_HSECSSON);
 }
 
 static void stm32mp1_csi_set(fdt_addr_t rcc, int enable)
 {
-	stm32mp1_hs_ocs_set(enable, rcc, RCC_OCENR_CSION);
+	stm32mp1_ls_osc_set(enable, rcc, RCC_OCENSETR, RCC_OCENR_CSION);
 	stm32mp1_osc_wait(enable, rcc, RCC_OCRDYR, RCC_OCRDYR_CSIRDY);
 }
 
@@ -1322,10 +1318,7 @@ static void pll_start(struct stm32mp1_clk_priv *priv, int pll_id)
 {
 	const struct stm32mp1_clk_pll *pll = priv->data->pll;
 
-	clrsetbits_le32(priv->base + pll[pll_id].pllxcr,
-			RCC_PLLNCR_DIVPEN | RCC_PLLNCR_DIVQEN |
-			RCC_PLLNCR_DIVREN,
-			RCC_PLLNCR_PLLON);
+	writel(RCC_PLLNCR_PLLON, priv->base + pll[pll_id].pllxcr);
 }
 
 static int pll_output(struct stm32mp1_clk_priv *priv, int pll_id, int output)
@@ -1444,73 +1437,6 @@ static void pll_csg(struct stm32mp1_clk_priv *priv, int pll_id, u32 *csg)
 		    RCC_PLLNCSGR_SSCG_MODE_MASK);
 
 	writel(pllxcsg, priv->base + pll[pll_id].pllxcsgr);
-
-	setbits_le32(priv->base + pll[pll_id].pllxcr, RCC_PLLNCR_SSCG_CTRL);
-}
-
-static  __maybe_unused int pll_set_rate(struct udevice *dev,
-					int pll_id,
-					int div_id,
-					unsigned long clk_rate)
-{
-	struct stm32mp1_clk_priv *priv = dev_get_priv(dev);
-	unsigned int pllcfg[PLLCFG_NB];
-	ofnode plloff;
-	char name[12];
-	const struct stm32mp1_clk_pll *pll = priv->data->pll;
-	enum stm32mp1_plltype type = pll[pll_id].plltype;
-	int divm, divn, divy;
-	int ret;
-	ulong fck_ref;
-	u32 fracv;
-	u64 value;
-
-	if (div_id > _DIV_NB)
-		return -EINVAL;
-
-	sprintf(name, "st,pll@%d", pll_id);
-	plloff = dev_read_subnode(dev, name);
-	if (!ofnode_valid(plloff))
-		return -FDT_ERR_NOTFOUND;
-
-	ret = ofnode_read_u32_array(plloff, "cfg",
-				    pllcfg, PLLCFG_NB);
-	if (ret < 0)
-		return -FDT_ERR_NOTFOUND;
-
-	fck_ref = pll_get_fref_ck(priv, pll_id);
-
-	divm = pllcfg[PLLCFG_M];
-	/* select output divider = 0: for _DIV_P, 1:_DIV_Q 2:_DIV_R */
-	divy = pllcfg[PLLCFG_P + div_id];
-
-	/* For: PLL1 & PLL2 => VCO is * 2 but ck_pll_y is also / 2
-	 * So same final result than PLL2 et 4
-	 * with FRACV
-	 * Fck_pll_y = Fck_ref * ((DIVN + 1) + FRACV / 2^13)
-	 *             / (DIVy + 1) * (DIVM + 1)
-	 * value = (DIVN + 1) * 2^13 + FRACV / 2^13
-	 *       = Fck_pll_y (DIVy + 1) * (DIVM + 1) * 2^13 / Fck_ref
-	 */
-	value = ((u64)clk_rate * (divy + 1) * (divm + 1)) << 13;
-	value = lldiv(value, fck_ref);
-
-	divn = (value >> 13) - 1;
-	if (divn < DIVN_MIN ||
-	    divn > stm32mp1_pll[type].divn_max) {
-		pr_err("divn invalid = %d", divn);
-		return -EINVAL;
-	}
-	fracv = value - ((divn + 1) << 13);
-	pllcfg[PLLCFG_N] = divn;
-
-	/* reconfigure PLL */
-	pll_stop(priv, pll_id);
-	pll_config(priv, pll_id, pllcfg, fracv);
-	pll_start(priv, pll_id);
-	pll_output(priv, pll_id, pllcfg[PLLCFG_O]);
-
-	return 0;
 }
 
 static int set_clksrc(struct stm32mp1_clk_priv *priv, unsigned int clksrc)
@@ -1542,15 +1468,10 @@ static void stgen_config(struct stm32mp1_clk_priv *priv)
 	rate = stm32mp1_clk_get(priv, p);
 
 	if (cntfid0 != rate) {
-		u64 counter;
-
 		pr_debug("System Generic Counter (STGEN) update\n");
 		clrbits_le32(stgenc + STGENC_CNTCR, STGENC_CNTCR_EN);
-		counter = (u64)readl(stgenc + STGENC_CNTCVL);
-		counter |= ((u64)(readl(stgenc + STGENC_CNTCVU))) << 32;
-		counter = lldiv(counter * (u64)rate, cntfid0);
-		writel((u32)counter, stgenc + STGENC_CNTCVL);
-		writel((u32)(counter >> 32), stgenc + STGENC_CNTCVU);
+		writel(0x0, stgenc + STGENC_CNTCVL);
+		writel(0x0, stgenc + STGENC_CNTCVU);
 		writel(rate, stgenc + STGENC_CNTFID0);
 		setbits_le32(stgenc + STGENC_CNTCR, STGENC_CNTCR_EN);
 
@@ -1885,11 +1806,6 @@ static ulong stm32mp1_clk_set_rate(struct clk *clk, unsigned long clk_rate)
 	int p;
 
 	switch (clk->id) {
-#if defined(STM32MP1_CLOCK_TREE_INIT) && \
-	defined(CONFIG_STM32MP1_DDR_INTERACTIVE)
-	case DDRPHYC:
-		break;
-#endif
 	case LTDC_PX:
 	case DSI_PX:
 		break;
@@ -1903,19 +1819,6 @@ static ulong stm32mp1_clk_set_rate(struct clk *clk, unsigned long clk_rate)
 		return -EINVAL;
 
 	switch (p) {
-#if defined(STM32MP1_CLOCK_TREE_INIT) && \
-	defined(CONFIG_STM32MP1_DDR_INTERACTIVE)
-	case _PLL2_R: /* DDRPHYC */
-	{
-		/* only for change DDR clock in interactive mode */
-		ulong result;
-
-		set_clksrc(priv, CLK_AXI_HSI);
-		result = pll_set_rate(clk->dev,  _PLL2, _DIV_R, clk_rate);
-		set_clksrc(priv, CLK_AXI_PLL2P);
-		return result;
-	}
-#endif
 	case _PLL4_Q:
 		/* for LTDC_PX and DSI_PX case */
 		return pll_set_output_rate(clk->dev, _PLL4, _DIV_Q, clk_rate);
@@ -1953,61 +1856,13 @@ static void stm32mp1_osc_init(struct udevice *dev)
 		[_HSE] = "clk-hse",
 		[_CSI] = "clk-csi",
 		[_I2S_CKIN] = "i2s_ckin",
-	};
+		[_USB_PHY_48] = "ck_usbo_48m"};
 
 	for (i = 0; i < NB_OSC; i++) {
 		stm32mp1_osc_clk_init(name[i], priv, i);
 		debug("%d: %s => %x\n", i, name[i], (u32)priv->osc[i]);
 	}
 }
-
-static void  __maybe_unused stm32mp1_clk_dump(struct stm32mp1_clk_priv *priv)
-{
-	char buf[32];
-	int i, s, p;
-
-	printf("Clocks:\n");
-	for (i = 0; i < _PARENT_NB; i++) {
-		printf("- %s : %s MHz\n",
-		       stm32mp1_clk_parent_name[i],
-		       strmhz(buf, stm32mp1_clk_get(priv, i)));
-	}
-	printf("Source Clocks:\n");
-	for (i = 0; i < _PARENT_SEL_NB; i++) {
-		p = (readl(priv->base + priv->data->sel[i].offset) >>
-		     priv->data->sel[i].src) & priv->data->sel[i].msk;
-		if (p < priv->data->sel[i].nb_parent) {
-			s = priv->data->sel[i].parent[p];
-			printf("- %s(%d) => parent %s(%d)\n",
-			       stm32mp1_clk_parent_sel_name[i], i,
-			       stm32mp1_clk_parent_name[s], s);
-		} else {
-			printf("- %s(%d) => parent index %d is invalid\n",
-			       stm32mp1_clk_parent_sel_name[i], i, p);
-		}
-	}
-}
-
-#ifdef CONFIG_CMD_CLK
-int soc_clk_dump(void)
-{
-	struct udevice *dev;
-	struct stm32mp1_clk_priv *priv;
-	int ret;
-
-	ret = uclass_get_device_by_driver(UCLASS_CLK,
-					  DM_GET_DRIVER(stm32mp1_clock),
-					  &dev);
-	if (ret)
-		return ret;
-
-	priv = dev_get_priv(dev);
-
-	stm32mp1_clk_dump(priv);
-
-	return 0;
-}
-#endif
 
 static int stm32mp1_clk_probe(struct udevice *dev)
 {
@@ -2030,33 +1885,6 @@ static int stm32mp1_clk_probe(struct udevice *dev)
 	/* clock tree init is done only one time, before relocation */
 	if (!(gd->flags & GD_FLG_RELOC))
 		result = stm32mp1_clktree(dev);
-#endif
-
-#ifndef CONFIG_SPL_BUILD
-#if defined(DEBUG)
-	/* display debug information for probe after relocation */
-	if (gd->flags & GD_FLG_RELOC)
-		stm32mp1_clk_dump(priv);
-#endif
-
-#if defined(CONFIG_DISPLAY_CPUINFO)
-	if (gd->flags & GD_FLG_RELOC) {
-		char buf[32];
-
-		printf("Clocks:\n");
-		printf("- MPU : %s MHz\n",
-		       strmhz(buf, stm32mp1_clk_get(priv, _CK_MPU)));
-		printf("- MCU : %s MHz\n",
-		       strmhz(buf, stm32mp1_clk_get(priv, _CK_MCU)));
-		printf("- AXI : %s MHz\n",
-		       strmhz(buf, stm32mp1_clk_get(priv, _ACLK)));
-		printf("- PER : %s MHz\n",
-		       strmhz(buf, stm32mp1_clk_get(priv, _CK_PER)));
-		/* DDRPHYC father */
-		printf("- DDR : %s MHz\n",
-		       strmhz(buf, stm32mp1_clk_get(priv, _PLL2_R)));
-	}
-#endif /* CONFIG_DISPLAY_CPUINFO */
 #endif
 
 	return result;

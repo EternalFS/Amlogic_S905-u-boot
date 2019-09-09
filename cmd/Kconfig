@@ -53,17 +53,6 @@ config SYS_PROMPT
 	  This string is displayed in the command line to the left of the
 	  cursor.
 
-config SYS_XTRACE
-	string "Command execution tracer"
-	depends on CMDLINE
-	default y if CMDLINE
-	help
-	  This option enables the possiblity to print all commands before
-	  executing them and after all variables are evaluated (similar
-	  to Bash's xtrace/'set -x' feature).
-	  To enable the tracer a variable "xtrace" needs to be defined in
-	  the environment.
-
 menu "Autoboot options"
 
 config AUTOBOOT
@@ -223,7 +212,7 @@ config CMD_BOOTZ
 
 config CMD_BOOTI
 	bool "booti"
-	depends on ARM64 || RISCV
+	depends on ARM64
 	default y
 	help
 	  Boot an AArch64 Linux Kernel image from memory.
@@ -237,7 +226,7 @@ config CMD_BOOTEFI
 
 config CMD_BOOTEFI_HELLO_COMPILE
 	bool "Compile a standard EFI hello world binary for testing"
-	depends on CMD_BOOTEFI && !CPU_V7M && !SANDBOX
+	depends on CMD_BOOTEFI && (ARM || X86 || RISCV)
 	default y
 	help
 	  This compiles a standard EFI hello world application with U-Boot so
@@ -430,16 +419,6 @@ config CMD_ENV_FLAGS
 	  behaviour. For example, serial# can only be written once and cannot
 	  be deleted. This command shows the variables that have special
 	  flags.
-
-config CMD_NVEDIT_EFI
-	bool "env [set|print] -e - set/print UEFI variables"
-	depends on EFI_LOADER
-	default y
-	imply HEXDUMP
-	help
-	  UEFI variables are encoded as some form of U-Boot variables.
-	  If enabled, we are allowed to set/print UEFI variables using
-	  "env" command with "-e" option without knowing details.
 
 endmenu
 
@@ -974,14 +953,6 @@ config CMD_PCMCIA
 	  about 1990. These devices are typically removable memory or network
 	  cards using a standard 68-pin connector.
 
-config CMD_PINMUX
-	bool "pinmux - show pins muxing"
-	default y if PINCTRL
-	help
-	  Parse all available pin-controllers and show pins muxing. This
-	  is useful for debug purpoer to check the pin muxing and to know if
-	  a pin is configured as a GPIO or as an alternate function.
-
 config CMD_POWEROFF
 	bool "poweroff"
 	help
@@ -1050,19 +1021,9 @@ config CMD_SF_TEST
 	  everything is working properly.
 
 config CMD_SPI
-	bool "sspi - Command to access spi device"
+	bool "sspi"
 	help
 	  SPI utility command.
-
-config DEFAULT_SPI_BUS
-	int "default spi bus used by sspi command"
-	depends on CMD_SPI
-	default 0
-
-config DEFAULT_SPI_MODE
-	hex "default spi mode used by sspi command (see include/spi.h)"
-	depends on CMD_SPI
-	default 0
 
 config CMD_TSI148
 	bool "tsi148 - Command to access tsi148 device"
@@ -1103,19 +1064,6 @@ config CMD_USB_MASS_STORAGE
 	select USB_FUNCTION_MASS_STORAGE
 	help
 	  USB mass storage support
-
-config CMD_VIRTIO
-	bool "virtio"
-	depends on VIRTIO
-	default y if VIRTIO
-	help
-	  VirtIO block device support
-
-config CMD_WDT
-	bool "wdt"
-	depends on WDT
-	help
-	  This provides commands to control the watchdog timer devices.
 
 config CMD_AXI
 	bool "axi"
@@ -1417,34 +1365,16 @@ config CMD_CONITRACE
 	  Enable the 'conitrace' command which displays the codes received
 	  from the console input as hexadecimal numbers.
 
-config CMD_CLS
-	bool "Enable clear screen command 'cls'"
-	depends on CFB_CONSOLE || DM_VIDEO || LCD || VIDEO
-	default y if LCD
+config CMD_DISPLAY
+	bool "Enable the 'display' command, for character displays"
 	help
-	  Enable the 'cls' command which clears the screen contents
-	  on video frame buffer.
-
-config CMD_EFIDEBUG
-	bool "efidebug - display/configure UEFI environment"
-	depends on EFI_LOADER
-	select EFI_DEVICE_PATH_TO_TEXT
-	default n
-	help
-	  Enable the 'efidebug' command which provides a subset of UEFI
-	  shell utility with simplified functionality. It will be useful
-	  particularly for managing boot parameters as  well as examining
-	  various EFI status for debugging.
-
-config CMD_EXCEPTION
-	bool "exception - raise exception"
-	depends on ARM || RISCV || X86
-	help
-	  Enable the 'exception' command which allows to raise an exception.
+	  (this needs porting to driver model)
+	  This enables the 'display' command which allows a string to be
+	  displayed on a simple board-specific display. Implement
+	  display_putc() to use it.
 
 config CMD_LED
 	bool "led"
-	depends on LED
 	default y if LED
 	help
 	  Enable the 'led' command which allows for control of LEDs supported
@@ -1798,14 +1728,14 @@ config CMD_MTDPARTS
 
 config MTDIDS_DEFAULT
 	string "Default MTD IDs"
-	depends on MTD_PARTITIONS || CMD_MTDPARTS || CMD_NAND || CMD_FLASH
+	depends on CMD_MTD || CMD_MTDPARTS || CMD_NAND || CMD_FLASH
 	help
 	  Defines a default MTD IDs list for use with MTD partitions in the
 	  Linux MTD command line partitions format.
 
 config MTDPARTS_DEFAULT
 	string "Default MTD partition scheme"
-	depends on MTD_PARTITIONS || CMD_MTDPARTS || CMD_NAND || CMD_FLASH
+	depends on CMD_MTD || CMD_MTDPARTS || CMD_NAND || CMD_FLASH
 	help
 	  Defines a default MTD partitioning scheme in the Linux MTD command
 	  line partitions format
@@ -1903,7 +1833,7 @@ config CMD_TRACE
 	  Enables a command to control using of function tracing within
 	  U-Boot. This allows recording of call traces including timing
 	  information. The command can write data to memory for exporting
-	  for analysis (e.g. using bootchart). See doc/README.trace for full
+	  for analsys (e.g. using bootchart). See doc/README.trace for full
 	  details.
 
 config CMD_AVB
@@ -1926,6 +1856,8 @@ endmenu
 
 config CMD_UBI
 	tristate "Enable UBI - Unsorted block images commands"
+	select CMD_MTDPARTS
+	select CRC32
 	select MTD_UBI
 	help
 	  UBI is a software layer above MTD layer which admits use of LVM-like
@@ -1941,8 +1873,15 @@ config CMD_UBIFS
 	tristate "Enable UBIFS - Unsorted block images filesystem commands"
 	depends on CMD_UBI
 	default y if CMD_UBI
+	select CRC32
 	select LZO
 	help
 	  UBIFS is a file system for flash devices which works on top of UBI.
+
+config CMD_KHADAS_KBI
+	bool "Khadas Bootloader Instructions"
+	depends on TARGET_KEDGE_RK3399
+	help
+	  Khadas Bootloader Instructions
 
 endmenu

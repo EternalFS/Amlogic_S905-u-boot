@@ -35,6 +35,8 @@
 #define CONFIG_SYS_FSL_USDHC_NUM	1
 #elif CONFIG_TARGET_COLIBRI_IMX7_EMMC
 #define CONFIG_SYS_FSL_USDHC_NUM	2
+
+#define CONFIG_SUPPORT_EMMC_BOOT
 #endif
 
 #undef CONFIG_BOOTM_PLAN9
@@ -108,13 +110,13 @@
 		"run fdt_fixup && bootz ${kernel_addr_r} - ${fdt_addr_r}\0" \
 
 #if defined(CONFIG_TARGET_COLIBRI_IMX7_NAND)
-#define CONFIG_BOOTCOMMAND "run ubiboot ; echo ; echo ubiboot failed ; " \
+#define CONFIG_BOOTCOMMAND "run emmcboot ; echo ; echo emmcboot failed ; " \
 	"setenv fdtfile ${soc}-colibri-${fdt_board}.dtb && run distro_bootcmd;"
 #define MODULE_EXTRA_ENV_SETTINGS \
 	"mtdparts=" CONFIG_MTDPARTS_DEFAULT "\0" \
 	UBI_BOOTCMD
 #elif defined(CONFIG_TARGET_COLIBRI_IMX7_EMMC)
-#define CONFIG_BOOTCOMMAND "run emmcboot ; echo ; echo emmcboot failed ; " \
+#define CONFIG_BOOTCOMMAND "run ubiboot ; echo ; echo ubiboot failed ; " \
 	"setenv fdtfile ${soc}-colibri-emmc-${fdt_board}.dtb && run distro_bootcmd;"
 #define MODULE_EXTRA_ENV_SETTINGS \
 	"variant=-emmc\0" \
@@ -141,7 +143,6 @@
 	NFS_BOOTCMD \
 	SD_BOOTCMD \
 	MODULE_EXTRA_ENV_SETTINGS \
-	"boot_file=zImage\0" \
 	"console=ttymxc0\0" \
 	"defargs=\0" \
 	"fdt_board=eval-v3\0" \

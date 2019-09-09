@@ -98,8 +98,9 @@ void os_exit(int exit_code)
 	exit(exit_code);
 }
 
-int os_write_file(const char *fname, const void *buf, int size)
+int os_write_file(const char *name, const void *buf, int size)
 {
+	char fname[256];
 	int fd;
 
 	fd = os_open(fname, OS_O_WRONLY | OS_O_CREAT | OS_O_TRUNC);
@@ -109,51 +110,12 @@ int os_write_file(const char *fname, const void *buf, int size)
 	}
 	if (os_write(fd, buf, size) != size) {
 		printf("Cannot write to file '%s'\n", fname);
-		os_close(fd);
 		return -EIO;
 	}
 	os_close(fd);
+	printf("Write '%s', size %#x (%d)\n", name, size, size);
 
 	return 0;
-}
-
-int os_read_file(const char *fname, void **bufp, int *sizep)
-{
-	off_t size;
-	int ret = -EIO;
-	int fd;
-
-	fd = os_open(fname, OS_O_RDONLY);
-	if (fd < 0) {
-		printf("Cannot open file '%s'\n", fname);
-		goto err;
-	}
-	size = os_lseek(fd, 0, OS_SEEK_END);
-	if (size < 0) {
-		printf("Cannot seek to end of file '%s'\n", fname);
-		goto err;
-	}
-	if (os_lseek(fd, 0, OS_SEEK_SET) < 0) {
-		printf("Cannot seek to start of file '%s'\n", fname);
-		goto err;
-	}
-	*bufp = os_malloc(size);
-	if (!*bufp) {
-		printf("Not enough memory to read file '%s'\n", fname);
-		ret = -ENOMEM;
-		goto err;
-	}
-	if (os_read(fd, *bufp, size) != size) {
-		printf("Cannot read from file '%s'\n", fname);
-		goto err;
-	}
-	os_close(fd);
-	*sizep = size;
-
-	return 0;
-err:
-	os_close(fd);
-	return ret;
 }
 
 /* Restore tty state when we exit */
@@ -209,15 +171,10 @@ void os_tty_raw(int fd, bool allow_sigs)
 
 void *os_malloc(size_t length)
 {
-	int page_size = getpagesize();
 	struct os_mem_hdr *hdr;
+	int page_size = getpagesize();
 
-	/*
-	 * Use an address that is hopefully available to us so that pointers
-	 * to this memory are fairly obvious. If we end up with a different
-	 * address, that's fine too.
-	 */
-	hdr = mmap((void *)0x10000000, length + page_size,
+	hdr = mmap(NULL, length + page_size,
 		   PROT_READ | PROT_WRITE | PROT_EXEC,
 		   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (hdr == MAP_FAILED)
@@ -229,34 +186,30 @@ void *os_malloc(size_t length)
 
 void os_free(void *ptr)
 {
-	int page_size = getpagesize();
-	struct os_mem_hdr *hdr;
+	struct os_mem_hdr *hdr = ptr;
 
-	if (ptr) {
-		hdr = ptr - page_size;
-		munmap(hdr, hdr->length + page_size);
-	}
+	hdr--;
+	if (ptr)
+		munmap(hdr, hdr->length + sizeof(*hdr));
 }
 
 void *os_realloc(void *ptr, size_t length)
 {
-	int page_size = getpagesize();
-	struct os_mem_hdr *hdr;
+	struct os_mem_hdr *hdr = ptr;
 	void *buf = NULL;
 
-	if (length) {
+	hdr--;
+	if (length != 0) {
 		buf = os_malloc(length);
 		if (!buf)
 			return buf;
 		if (ptr) {
-			hdr = ptr - page_size;
 			if (length > hdr->length)
 				length = hdr->length;
 			memcpy(buf, ptr, length);
 		}
 	}
-	if (ptr)
-		os_free(ptr);
+	os_free(ptr);
 
 	return buf;
 }
@@ -385,7 +338,7 @@ void os_dirent_free(struct os_dirent_node *node)
 
 	while (node) {
 		next = node->next;
-		os_free(node);
+		free(node);
 		node = next;
 	}
 }
@@ -410,7 +363,7 @@ int os_dirent_ls(const char *dirname, struct os_dirent_node **headp)
 	/* Create a buffer upfront, with typically sufficient size */
 	dirlen = strlen(dirname) + 2;
 	len = dirlen + 256;
-	fname = os_malloc(len);
+	fname = malloc(len);
 	if (!fname) {
 		ret = -ENOMEM;
 		goto done;
@@ -423,7 +376,7 @@ int os_dirent_ls(const char *dirname, struct os_dirent_node **headp)
 			ret = errno;
 			break;
 		}
-		next = os_malloc(sizeof(*node) + strlen(entry->d_name) + 1);
+		next = malloc(sizeof(*node) + strlen(entry->d_name) + 1);
 		if (!next) {
 			os_dirent_free(head);
 			ret = -ENOMEM;
@@ -432,10 +385,10 @@ int os_dirent_ls(const char *dirname, struct os_dirent_node **headp)
 		if (dirlen + strlen(entry->d_name) > len) {
 			len = dirlen + strlen(entry->d_name);
 			old_fname = fname;
-			fname = os_realloc(fname, len);
+			fname = realloc(fname, len);
 			if (!fname) {
-				os_free(old_fname);
-				os_free(next);
+				free(old_fname);
+				free(next);
 				os_dirent_free(head);
 				ret = -ENOMEM;
 				goto done;
@@ -469,7 +422,7 @@ int os_dirent_ls(const char *dirname, struct os_dirent_node **headp)
 
 done:
 	closedir(dir);
-	os_free(fname);
+	free(fname);
 	return ret;
 }
 
@@ -567,48 +520,20 @@ static int make_exec(char *fname, const void *data, int size)
 	return 0;
 }
 
-/**
- * add_args() - Allocate a new argv with the given args
- *
- * This is used to create a new argv array with all the old arguments and some
- * new ones that are passed in
- *
- * @argvp:  Returns newly allocated args list
- * @add_args: Arguments to add, each a string
- * @count: Number of arguments in @add_args
- * @return 0 if OK, -ENOMEM if out of memory
- */
-static int add_args(char ***argvp, char *add_args[], int count)
+static int add_args(char ***argvp, const char *add_args[], int count)
 {
-	char **argv, **ap;
+	char **argv;
 	int argc;
 
-	for (argc = 0; (*argvp)[argc]; argc++)
+	for (argv = *argvp, argc = 0; (*argvp)[argc]; argc++)
 		;
 
-	argv = os_malloc((argc + count + 1) * sizeof(char *));
+	argv = malloc((argc + count + 1) * sizeof(char *));
 	if (!argv) {
 		printf("Out of memory for %d argv\n", count);
 		return -ENOMEM;
 	}
-	for (ap = *argvp, argc = 0; *ap; ap++) {
-		char *arg = *ap;
-
-		/* Drop args that we don't want to propagate */
-		if (*arg == '-' && strlen(arg) == 2) {
-			switch (arg[1]) {
-			case 'j':
-			case 'm':
-				ap++;
-				continue;
-			}
-		} else if (!strcmp(arg, "--rm_memory")) {
-			ap++;
-			continue;
-		}
-		argv[argc++] = arg;
-	}
-
+	memcpy(argv, *argvp, argc * sizeof(char *));
 	memcpy(argv + argc, add_args, count * sizeof(char *));
 	argv[argc + count] = NULL;
 
@@ -616,26 +541,20 @@ static int add_args(char ***argvp, char *add_args[], int count)
 	return 0;
 }
 
-/**
- * os_jump_to_file() - Jump to a new program
- *
- * This saves the memory buffer, sets up arguments to the new process, then
- * execs it.
- *
- * @fname: Filename to exec
- * @return does not return on success, any return value is an error
- */
-static int os_jump_to_file(const char *fname)
+int os_jump_to_image(const void *dest, int size)
 {
 	struct sandbox_state *state = state_get_current();
-	char mem_fname[30];
+	char fname[30], mem_fname[30];
 	int fd, err;
-	char *extra_args[5];
+	const char *extra_args[5];
 	char **argv = state->argv;
-	int argc;
 #ifdef DEBUG
-	int i;
+	int argc, i;
 #endif
+
+	err = make_exec(fname, dest, size);
+	if (err)
+		return err;
 
 	strcpy(mem_fname, "/tmp/u-boot.mem.XXXXXX");
 	fd = mkstemp(mem_fname);
@@ -649,16 +568,14 @@ static int os_jump_to_file(const char *fname)
 	os_fd_restore();
 
 	extra_args[0] = "-j";
-	extra_args[1] = (char *)fname;
+	extra_args[1] = fname;
 	extra_args[2] = "-m";
 	extra_args[3] = mem_fname;
-	argc = 4;
-	if (state->ram_buf_rm)
-		extra_args[argc++] = "--rm_memory";
-	err = add_args(&argv, extra_args, argc);
+	extra_args[4] = "--rm_memory";
+	err = add_args(&argv, extra_args,
+		       sizeof(extra_args) / sizeof(extra_args[0]));
 	if (err)
 		return err;
-	argv[0] = (char *)fname;
 
 #ifdef DEBUG
 	for (i = 0; argv[i]; i++)
@@ -669,26 +586,11 @@ static int os_jump_to_file(const char *fname)
 		os_exit(2);
 
 	err = execv(fname, argv);
-	os_free(argv);
-	if (err) {
-		perror("Unable to run image");
-		printf("Image filename '%s'\n", fname);
-		return err;
-	}
-
-	return unlink(fname);
-}
-
-int os_jump_to_image(const void *dest, int size)
-{
-	char fname[30];
-	int err;
-
-	err = make_exec(fname, dest, size);
+	free(argv);
 	if (err)
 		return err;
 
-	return os_jump_to_file(fname);
+	return unlink(fname);
 }
 
 int os_find_u_boot(char *fname, int maxlen)
@@ -739,10 +641,9 @@ int os_find_u_boot(char *fname, int maxlen)
 	}
 
 	/* Look for 'u-boot' in the parent directory of spl/ */
-	p = strstr(fname, "spl/");
+	p = strstr(fname, "/spl/");
 	if (p) {
-		/* Remove the "spl" characters */
-		memmove(p, p + 4, strlen(p + 4) + 1);
+		strcpy(p, p + 4);
 		fd = os_open(fname, O_RDONLY);
 		if (fd >= 0) {
 			close(fd);
@@ -755,7 +656,17 @@ int os_find_u_boot(char *fname, int maxlen)
 
 int os_spl_to_uboot(const char *fname)
 {
-	return os_jump_to_file(fname);
+	struct sandbox_state *state = state_get_current();
+	char *argv[state->argc + 1];
+	int ret;
+
+	memcpy(argv, state->argv, sizeof(char *) * (state->argc + 1));
+	argv[0] = (char *)fname;
+	ret = execv(fname, argv);
+	if (ret)
+		return ret;
+
+	return unlink(fname);
 }
 
 void os_localtime(struct rtc_time *rt)
@@ -789,41 +700,4 @@ int os_mprotect_allow(void *start, size_t len)
 	len = (len + page_size * 2) & ~(page_size - 1);
 
 	return mprotect(start, len, PROT_READ | PROT_WRITE);
-}
-
-void *os_find_text_base(void)
-{
-	char line[500];
-	void *base = NULL;
-	int len;
-	int fd;
-
-	/*
-	 * This code assumes that the first line of /proc/self/maps holds
-	 * information about the text, for example:
-	 *
-	 * 5622d9907000-5622d9a55000 r-xp 00000000 08:01 15067168   u-boot
-	 *
-	 * The first hex value is assumed to be the address.
-	 *
-	 * This is tested in Linux 4.15.
-	 */
-	fd = open("/proc/self/maps", O_RDONLY);
-	if (fd == -1)
-		return NULL;
-	len = read(fd, line, sizeof(line));
-	if (len > 0) {
-		char *end = memchr(line, '-', len);
-
-		if (end) {
-			unsigned long long addr;
-
-			*end = '\0';
-			if (sscanf(line, "%llx", &addr) == 1)
-				base = (void *)addr;
-		}
-	}
-	close(fd);
-
-	return base;
 }

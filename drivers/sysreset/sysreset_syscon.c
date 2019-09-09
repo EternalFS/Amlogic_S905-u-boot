@@ -24,9 +24,6 @@ static int syscon_reboot_request(struct udevice *dev, enum sysreset_t type)
 {
 	struct syscon_reboot_priv *priv = dev_get_priv(dev);
 
-	if (type == SYSRESET_POWER)
-		return -EPROTONOSUPPORT;
-
 	regmap_write(priv->regmap, priv->offset, priv->mask);
 
 	return -EINPROGRESS;
@@ -39,9 +36,20 @@ static struct sysreset_ops syscon_reboot_ops = {
 int syscon_reboot_probe(struct udevice *dev)
 {
 	struct syscon_reboot_priv *priv = dev_get_priv(dev);
+	int err;
+	u32 phandle;
+	ofnode node;
 
-	priv->regmap = syscon_regmap_lookup_by_phandle(dev, "regmap");
-	if (IS_ERR(priv->regmap)) {
+	err = ofnode_read_u32(dev_ofnode(dev), "regmap", &phandle);
+	if (err)
+		return err;
+
+	node = ofnode_get_by_phandle(phandle);
+	if (!ofnode_valid(node))
+		return -EINVAL;
+
+	priv->regmap = syscon_node_to_regmap(node);
+	if (!priv->regmap) {
 		pr_err("unable to find regmap\n");
 		return -ENODEV;
 	}

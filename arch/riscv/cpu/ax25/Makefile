@@ -4,4 +4,3 @@
 # Rick Chen, Andes Technology Corporation <rick@andestech.com>
 
 obj-y	:= cpu.o
-obj-y	+= cache.o

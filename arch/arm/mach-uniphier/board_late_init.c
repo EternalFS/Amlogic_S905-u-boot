@@ -66,20 +66,20 @@ int board_late_init(void)
 	switch (uniphier_boot_device_raw()) {
 	case BOOT_DEVICE_MMC1:
 		printf("eMMC Boot");
-		env_set("bootdev", "emmc");
+		env_set("bootcmd", "run bootcmd_mmc0; run distro_bootcmd");
 		break;
 	case BOOT_DEVICE_NAND:
 		printf("NAND Boot");
-		env_set("bootdev", "nand");
+		env_set("bootcmd", "run bootcmd_ubifs0; run distro_bootcmd");
 		nand_denali_wp_disable();
 		break;
 	case BOOT_DEVICE_NOR:
 		printf("NOR Boot");
-		env_set("bootdev", "nor");
+		env_set("bootcmd", "run tftpboot; run distro_bootcmd");
 		break;
 	case BOOT_DEVICE_USB:
 		printf("USB Boot");
-		env_set("bootdev", "usb");
+		env_set("bootcmd", "run bootcmd_usb0; run distro_bootcmd");
 		break;
 	default:
 		printf("Unknown");

@@ -14,8 +14,6 @@
  * @device_id:     Driver-defined device identifier
  * @family:        DMTF CPU Family identifier
  * @id:            DMTF CPU Processor identifier
- * @timebase_freq: the current frequency at which the cpu timer timebase
- *		   registers are updated (in Hz)
  *
  * This can be accessed with dev_get_parent_platdata() for any UCLASS_CPU
  * device.
@@ -26,7 +24,6 @@ struct cpu_platdata {
 	ulong device_id;
 	u16 family;
 	u32 id[2];
-	u32 timebase_freq;
 };
 
 /* CPU features - mostly just a placeholder for now */

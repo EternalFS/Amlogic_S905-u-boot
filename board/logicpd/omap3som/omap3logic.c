@@ -56,6 +56,36 @@ DECLARE_GLOBAL_DATA_PTR;
 #define LOGIC_MT28_OMAP35_ASYNC_GPMC_CONFIG6	0x09030000
 #define LOGIC_MT28_OMAP35_ASYNC_GPMC_CONFIG7	0x00000C50
 
+/* This is only needed until SPL gets OF support */
+#ifdef CONFIG_SPL_BUILD
+static const struct ns16550_platdata omap3logic_serial = {
+	.base = OMAP34XX_UART1,
+	.reg_shift = 2,
+	.clock = V_NS16550_CLK,
+	.fcr = UART_FCR_DEFVAL,
+};
+
+U_BOOT_DEVICE(omap3logic_uart) = {
+	"omap_serial",
+	&omap3logic_serial
+};
+
+static const struct omap_hsmmc_plat omap3_logic_mmc0_platdata = {
+	.base_addr = (struct hsmmc *)OMAP_HSMMC1_BASE,
+	.cfg.host_caps = MMC_MODE_HS_52MHz | MMC_MODE_HS | MMC_MODE_4BIT,
+	.cfg.f_min = 400000,
+	.cfg.f_max = 52000000,
+	.cfg.voltages = MMC_VDD_32_33 | MMC_VDD_33_34 | MMC_VDD_165_195,
+	.cfg.b_max = CONFIG_SYS_MMC_MAX_BLK_COUNT,
+};
+
+U_BOOT_DEVICE(omap3_logic_mmc0) = {
+	.name = "omap_hsmmc",
+	.platdata = &omap3_logic_mmc0_platdata,
+};
+
+#endif
+
 #ifdef CONFIG_SPL_OS_BOOT
 int spl_start_uboot(void)
 {
@@ -134,6 +164,61 @@ void spl_board_prepare_for_linux(void)
 }
 #endif
 
+#if !CONFIG_IS_ENABLED(DM_USB)
+#ifdef CONFIG_USB_MUSB_OMAP2PLUS
+static struct musb_hdrc_config musb_config = {
+	.multipoint     = 1,
+	.dyn_fifo       = 1,
+	.num_eps        = 16,
+	.ram_bits       = 12,
+};
+
+static struct omap_musb_board_data musb_board_data = {
+	.interface_type	= MUSB_INTERFACE_ULPI,
+};
+
+static struct musb_hdrc_platform_data musb_plat = {
+#if defined(CONFIG_USB_MUSB_HOST)
+	.mode           = MUSB_HOST,
+#elif defined(CONFIG_USB_MUSB_GADGET)
+	.mode		= MUSB_PERIPHERAL,
+#else
+#error "Please define either CONFIG_USB_MUSB_HOST or CONFIG_USB_MUSB_GADGET"
+#endif
+	.config         = &musb_config,
+	.power          = 100,
+	.platform_ops	= &omap2430_ops,
+	.board_data	= &musb_board_data,
+};
+#endif
+
+#if defined(CONFIG_USB_EHCI_HCD) && !defined(CONFIG_SPL_BUILD)
+/* Call usb_stop() before starting the kernel */
+void show_boot_progress(int val)
+{
+	if (val == BOOTSTAGE_ID_RUN_OS)
+		usb_stop();
+}
+
+static struct omap_usbhs_board_data usbhs_bdata = {
+	.port_mode[0] = OMAP_EHCI_PORT_MODE_PHY,
+	.port_mode[1] = OMAP_EHCI_PORT_MODE_PHY,
+	.port_mode[2] = OMAP_USBHS_PORT_MODE_UNUSED
+};
+
+int ehci_hcd_init(int index, enum usb_init_type init,
+		struct ehci_hccr **hccr, struct ehci_hcor **hcor)
+{
+	return omap_ehci_hcd_init(index, &usbhs_bdata, hccr, hcor);
+}
+
+int ehci_hcd_stop(int index)
+{
+	return omap_ehci_hcd_stop();
+}
+
+#endif /* CONFIG_USB_EHCI_HCD */
+#endif /* !DM_USB*/
 /*
  * Routine: misc_init_r
  * Description: Configure board specific parts
@@ -142,6 +227,12 @@ int misc_init_r(void)
 {
 	twl4030_power_init();
 	omap_die_id_display();
+
+#if !CONFIG_IS_ENABLED(DM_USB)
+#ifdef CONFIG_USB_MUSB_OMAP2PLUS
+	musb_register(&musb_plat, &musb_board_data, (void *)MUSB_BASE);
+#endif
+#endif
 	return 0;
 }
 

@@ -350,29 +350,4 @@ int os_mprotect_allow(void *start, size_t len);
  */
 int os_write_file(const char *name, const void *buf, int size);
 
-/**
- * os_read_file() - Read a file from the host filesystem
- *
- * This can be useful when reading test data into sandbox for use by test
- * routines. The data is allocated using os_malloc() and should be freed by
- * the caller.
- *
- * @name:	File path to read from
- * @bufp:	Returns buffer containing data read
- * @sizep:	Returns size of data
- * @return 0 if OK, -ve on error
- */
-int os_read_file(const char *name, void **bufp, int *sizep);
-
-/*
- * os_find_text_base() - Find the text section in this running process
- *
- * This tries to find the address of the text section in this running process.
- * It can be useful to map the address of functions to the address listed in
- * the u-boot.map file.
- *
- * @return address if found, else NULL
- */
-void *os_find_text_base(void);
-
 #endif

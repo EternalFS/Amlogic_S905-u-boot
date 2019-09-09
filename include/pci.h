@@ -405,7 +405,6 @@
 #define  PCI_MSI_FLAGS_QSIZE	0x70	/* Message queue size configured */
 #define  PCI_MSI_FLAGS_QMASK	0x0e	/* Maximum queue size available */
 #define  PCI_MSI_FLAGS_ENABLE	0x01	/* MSI feature enabled */
-#define  PCI_MSI_FLAGS_MASKBIT	0x0100	/* Per-vector masking capable */
 #define PCI_MSI_RFU		3	/* Rest of capability flags */
 #define PCI_MSI_ADDRESS_LO	4	/* Lower 32 bits */
 #define PCI_MSI_ADDRESS_HI	8	/* Upper 32 bits (if PCI_MSI_FLAGS_64BIT set) */
@@ -500,20 +499,9 @@ static inline void pci_set_region(struct pci_region *reg,
 typedef int pci_dev_t;
 
 #define PCI_BUS(d)		(((d) >> 16) & 0xff)
-
-/*
- * Please note the difference in DEVFN usage in U-Boot vs Linux. U-Boot
- * uses DEVFN in bits 15-8 but Linux instead expects DEVFN in bits 7-0.
- * Please see the Linux header include/uapi/linux/pci.h for more details.
- * This is relevant for the following macros:
- * PCI_DEV, PCI_FUNC, PCI_DEVFN
- * The U-Boot macro PCI_DEV is equivalent to the Linux PCI_SLOT version with
- * the remark from above (input d in bits 15-8 instead of 7-0.
- */
 #define PCI_DEV(d)		(((d) >> 11) & 0x1f)
 #define PCI_FUNC(d)		(((d) >> 8) & 0x7)
 #define PCI_DEVFN(d, f)		((d) << 11 | (f) << 8)
-
 #define PCI_MASK_BUS(bdf)	((bdf) & 0xffff)
 #define PCI_ADD_BUS(bus, devfn)	(((bus) << 16) | (devfn))
 #define PCI_BDF(b, d, f)	((b) << 16 | PCI_DEVFN(d, f))
@@ -747,6 +735,12 @@ extern pci_dev_t pci_find_device (unsigned int vendor, unsigned int device, int 
 extern pci_dev_t pci_find_devices (struct pci_device_id *ids, int index);
 pci_dev_t pci_find_class(unsigned int find_class, int index);
 
+extern int pci_hose_config_device(struct pci_controller *hose,
+				  pci_dev_t dev,
+				  unsigned long io,
+				  pci_addr_t mem,
+				  unsigned long command);
+
 extern int pci_hose_find_capability(struct pci_controller *hose, pci_dev_t dev,
 				    int cap);
 extern int pci_hose_find_cap_start(struct pci_controller *hose, pci_dev_t dev,
@@ -834,7 +828,7 @@ struct udevice;
  *
  * Every device on a PCI bus has this per-child data.
  *
- * It can be accessed using dev_get_parent_platdata(dev) if dev->parent is a
+ * It can be accessed using dev_get_parent_priv(dev) if dev->parent is a
  * PCI bus (i.e. UCLASS_PCI)
  *
  * @devfn:	Encoded device and function index - see PCI_DEVFN()
@@ -1319,29 +1313,6 @@ pci_addr_t dm_pci_phys_to_bus(struct udevice *dev, phys_addr_t addr,
 void *dm_pci_map_bar(struct udevice *dev, int bar, int flags);
 
 /**
- * dm_pci_find_next_capability() - find a capability starting from an offset
- *
- * Tell if a device supports a given PCI capability. Returns the
- * address of the requested capability structure within the device's
- * PCI configuration space or 0 in case the device does not support it.
- *
- * Possible values for @cap:
- *
- *  %PCI_CAP_ID_MSI	Message Signalled Interrupts
- *  %PCI_CAP_ID_PCIX	PCI-X
- *  %PCI_CAP_ID_EXP	PCI Express
- *  %PCI_CAP_ID_MSIX	MSI-X
- *
- * See PCI_CAP_ID_xxx for the complete capability ID codes.
- *
- * @dev:	PCI device to query
- * @start:	offset to start from
- * @cap:	capability code
- * @return:	capability address or 0 if not supported
- */
-int dm_pci_find_next_capability(struct udevice *dev, u8 start, int cap);
-
-/**
  * dm_pci_find_capability() - find a capability
  *
  * Tell if a device supports a given PCI capability. Returns the
@@ -1362,31 +1333,6 @@ int dm_pci_find_next_capability(struct udevice *dev, u8 start, int cap);
  * @return:	capability address or 0 if not supported
  */
 int dm_pci_find_capability(struct udevice *dev, int cap);
-
-/**
- * dm_pci_find_next_ext_capability() - find an extended capability
- *				       starting from an offset
- *
- * Tell if a device supports a given PCI express extended capability.
- * Returns the address of the requested extended capability structure
- * within the device's PCI configuration space or 0 in case the device
- * does not support it.
- *
- * Possible values for @cap:
- *
- *  %PCI_EXT_CAP_ID_ERR	Advanced Error Reporting
- *  %PCI_EXT_CAP_ID_VC	Virtual Channel
- *  %PCI_EXT_CAP_ID_DSN	Device Serial Number
- *  %PCI_EXT_CAP_ID_PWR	Power Budgeting
- *
- * See PCI_EXT_CAP_ID_xxx for the complete extended capability ID codes.
- *
- * @dev:	PCI device to query
- * @start:	offset to start from
- * @cap:	extended capability code
- * @return:	extended capability address or 0 if not supported
- */
-int dm_pci_find_next_ext_capability(struct udevice *dev, int start, int cap);
 
 /**
  * dm_pci_find_ext_capability() - find an extended capability
@@ -1565,16 +1511,6 @@ struct dm_pci_emul_ops {
  */
 int sandbox_pci_get_emul(struct udevice *bus, pci_dev_t find_devfn,
 			 struct udevice **containerp, struct udevice **emulp);
-
-/**
- * pci_get_devfn() - Extract the devfn from fdt_pci_addr of the device
- *
- * Get devfn from fdt_pci_addr of the specifified device
- *
- * @dev:	PCI device
- * @return devfn in bits 15...8 if found, -ENODEV if not found
- */
-int pci_get_devfn(struct udevice *dev);
 
 #endif /* CONFIG_DM_PCI */
 

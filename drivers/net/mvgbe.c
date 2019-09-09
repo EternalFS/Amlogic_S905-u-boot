@@ -1005,8 +1005,10 @@ static int mvgbe_ofdata_to_platdata(struct udevice *dev)
 	phy_mode = fdt_getprop(gd->fdt_blob, pnode, "phy-mode", NULL);
 	if (phy_mode)
 		pdata->phy_interface = phy_get_interface_by_name(phy_mode);
-	else
-		pdata->phy_interface = PHY_INTERFACE_MODE_GMII;
+	if (pdata->phy_interface == -1) {
+		debug("%s: Invalid PHY interface '%s'\n", __func__, phy_mode);
+		return -EINVAL;
+	}
 
 	dmvgbe->phy_interface = pdata->phy_interface;
 

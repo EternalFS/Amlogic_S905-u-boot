@@ -19,6 +19,7 @@
 /*
  * High Level Configuration Options (easy to change)
  */
+#define CONFIG_MARVELL		1
 
 /*
  * Custom CONFIG_SYS_TEXT_BASE can be done in <board>.h

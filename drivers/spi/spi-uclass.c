@@ -15,8 +15,6 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define SPI_DEFAULT_SPEED_HZ 100000
-
 static int spi_set_speed_mode(struct udevice *bus, int speed, int mode)
 {
 	struct dm_spi_ops *ops;
@@ -60,7 +58,7 @@ int dm_spi_claim_bus(struct udevice *dev)
 			speed = spi->max_hz;
 	}
 	if (!speed)
-		speed = SPI_DEFAULT_SPEED_HZ;
+		speed = 100000;
 	if (speed != slave->speed) {
 		int ret = spi_set_speed_mode(bus, speed, slave->mode);
 
@@ -302,13 +300,7 @@ int spi_get_bus_and_cs(int busnum, int cs, int speed, int mode,
 		}
 		plat = dev_get_parent_platdata(dev);
 		plat->cs = cs;
-		if (speed) {
-			plat->max_hz = speed;
-		} else {
-			printf("Warning: SPI speed fallback to %u kHz\n",
-			       SPI_DEFAULT_SPEED_HZ / 1000);
-			plat->max_hz = SPI_DEFAULT_SPEED_HZ;
-		}
+		plat->max_hz = speed;
 		plat->mode = mode;
 		created = true;
 	} else if (ret) {
@@ -328,9 +320,7 @@ int spi_get_bus_and_cs(int busnum, int cs, int speed, int mode,
 	}
 
 	plat = dev_get_parent_platdata(dev);
-
-	/* get speed and mode from platdata when available */
-	if (plat->max_hz) {
+	if (!speed) {
 		speed = plat->max_hz;
 		mode = plat->mode;
 	}
@@ -384,8 +374,7 @@ int spi_slave_ofdata_to_platdata(struct udevice *dev,
 	int value;
 
 	plat->cs = dev_read_u32_default(dev, "reg", -1);
-	plat->max_hz = dev_read_u32_default(dev, "spi-max-frequency",
-					    SPI_DEFAULT_SPEED_HZ);
+	plat->max_hz = dev_read_u32_default(dev, "spi-max-frequency", 0);
 	if (dev_read_bool(dev, "spi-cpol"))
 		mode |= SPI_CPOL;
 	if (dev_read_bool(dev, "spi-cpha"))

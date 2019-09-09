@@ -66,7 +66,7 @@ static __u32 CBWTag;
 
 static int usb_max_devs; /* number of highest available usb device */
 
-#if !CONFIG_IS_ENABLED(BLK)
+#ifndef CONFIG_BLK
 static struct blk_desc usb_dev_desc[USB_MAX_STOR_DEV];
 #endif
 
@@ -99,7 +99,7 @@ struct us_data {
 	unsigned short	max_xfer_blk;		/* maximum transfer blocks */
 };
 
-#if !CONFIG_IS_ENABLED(BLK)
+#ifndef CONFIG_BLK
 static struct us_data usb_stor[USB_MAX_STOR_DEV];
 #endif
 
@@ -111,7 +111,7 @@ int usb_stor_get_info(struct usb_device *dev, struct us_data *us,
 		      struct blk_desc *dev_desc);
 int usb_storage_probe(struct usb_device *dev, unsigned int ifnum,
 		      struct us_data *ss);
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 static unsigned long usb_stor_read(struct udevice *dev, lbaint_t blknr,
 				   lbaint_t blkcnt, void *buffer);
 static unsigned long usb_stor_write(struct udevice *dev, lbaint_t blknr,
@@ -136,7 +136,7 @@ static void usb_show_progress(void)
 int usb_stor_info(void)
 {
 	int count = 0;
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 	struct udevice *dev;
 
 	for (blk_first_device(IF_TYPE_USB, &dev);
@@ -186,7 +186,7 @@ static int usb_stor_probe_device(struct usb_device *udev)
 {
 	int lun, max_lun;
 
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 	struct us_data *data;
 	int ret;
 #else
@@ -197,7 +197,7 @@ static int usb_stor_probe_device(struct usb_device *udev)
 #endif
 
 	debug("\n\nProbing for storage\n");
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 	/*
 	 * We store the us_data in the mass storage device's platdata. It
 	 * is shared by all LUNs (block devices) attached to this mass storage
@@ -226,7 +226,9 @@ static int usb_stor_probe_device(struct usb_device *udev)
 		blkdev->lun = lun;
 
 		ret = usb_stor_get_info(udev, data, blkdev);
-		if (ret == 1) {
+		if (ret == 1)
+			ret = blk_prepare_device(dev);
+		if (!ret) {
 			usb_max_devs++;
 			debug("%s: Found device %p\n", __func__, udev);
 		} else {
@@ -299,7 +301,7 @@ int usb_stor_scan(int mode)
 	if (mode == 1)
 		printf("       scanning usb for storage devices... ");
 
-#if !CONFIG_IS_ENABLED(DM_USB)
+#ifndef CONFIG_DM_USB
 	unsigned char i;
 
 	usb_disable_asynch(1); /* asynch transfer not allowed */
@@ -942,7 +944,7 @@ static void usb_stor_set_max_xfer_blk(struct usb_device *udev,
 	size_t __maybe_unused size;
 	int __maybe_unused ret;
 
-#if !CONFIG_IS_ENABLED(DM_USB)
+#ifndef CONFIG_DM_USB
 #ifdef CONFIG_USB_EHCI_HCD
 	/*
 	 * The U-Boot EHCI driver can handle any transfer length as long as
@@ -1119,7 +1121,7 @@ static void usb_bin_fixup(struct usb_device_descriptor descriptor,
 }
 #endif /* CONFIG_USB_BIN_FIXUP */
 
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 static unsigned long usb_stor_read(struct udevice *dev, lbaint_t blknr,
 				   lbaint_t blkcnt, void *buffer)
 #else
@@ -1134,14 +1136,14 @@ static unsigned long usb_stor_read(struct blk_desc *block_dev, lbaint_t blknr,
 	struct us_data *ss;
 	int retry;
 	struct scsi_cmd *srb = &usb_ccb;
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 	struct blk_desc *block_dev;
 #endif
 
 	if (blkcnt == 0)
 		return 0;
 	/* Setup  device */
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 	block_dev = dev_get_uclass_platdata(dev);
 	udev = dev_get_parent_priv(dev_get_parent(dev));
 	debug("\nusb_read: udev %d\n", block_dev->devnum);
@@ -1200,7 +1202,7 @@ retry_it:
 	return blkcnt;
 }
 
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 static unsigned long usb_stor_write(struct udevice *dev, lbaint_t blknr,
 				    lbaint_t blkcnt, const void *buffer)
 #else
@@ -1215,7 +1217,7 @@ static unsigned long usb_stor_write(struct blk_desc *block_dev, lbaint_t blknr,
 	struct us_data *ss;
 	int retry;
 	struct scsi_cmd *srb = &usb_ccb;
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 	struct blk_desc *block_dev;
 #endif
 
@@ -1223,7 +1225,7 @@ static unsigned long usb_stor_write(struct blk_desc *block_dev, lbaint_t blknr,
 		return 0;
 
 	/* Setup  device */
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 	block_dev = dev_get_uclass_platdata(dev);
 	udev = dev_get_parent_priv(dev_get_parent(dev));
 	debug("\nusb_read: udev %d\n", block_dev->devnum);
@@ -1495,7 +1497,7 @@ int usb_stor_get_info(struct usb_device *dev, struct us_data *ss,
 	return 1;
 }
 
-#if CONFIG_IS_ENABLED(DM_USB)
+#ifdef CONFIG_DM_USB
 
 static int usb_mass_storage_probe(struct udevice *dev)
 {
@@ -1519,7 +1521,7 @@ U_BOOT_DRIVER(usb_mass_storage) = {
 	.id	= UCLASS_MASS_STORAGE,
 	.of_match = usb_mass_storage_ids,
 	.probe = usb_mass_storage_probe,
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 	.platdata_auto_alloc_size	= sizeof(struct us_data),
 #endif
 };
@@ -1540,7 +1542,7 @@ static const struct usb_device_id mass_storage_id_table[] = {
 U_BOOT_USB_DEVICE(usb_mass_storage, mass_storage_id_table);
 #endif
 
-#if CONFIG_IS_ENABLED(BLK)
+#ifdef CONFIG_BLK
 static const struct blk_ops usb_storage_ops = {
 	.read	= usb_stor_read,
 	.write	= usb_stor_write,

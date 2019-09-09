@@ -7,7 +7,6 @@
 #include <common.h>
 #include <clk.h>
 #include <dm.h>
-#include <reset.h>
 #include <serial.h>
 #include <watchdog.h>
 #include <asm/io.h>
@@ -172,7 +171,6 @@ static int stm32_serial_probe(struct udevice *dev)
 {
 	struct stm32x7_serial_platdata *plat = dev_get_platdata(dev);
 	struct clk clk;
-	struct reset_ctl reset;
 	int ret;
 
 	plat->uart_info = (struct stm32_uart_info *)dev_get_driver_data(dev);
@@ -185,13 +183,6 @@ static int stm32_serial_probe(struct udevice *dev)
 	if (ret) {
 		dev_err(dev, "failed to enable clock\n");
 		return ret;
-	}
-
-	ret = reset_get_by_index(dev, 0, &reset);
-	if (!ret) {
-		reset_assert(&reset);
-		udelay(2);
-		reset_deassert(&reset);
 	}
 
 	plat->clock_rate = clk_get_rate(&clk);
@@ -239,9 +230,7 @@ U_BOOT_DRIVER(serial_stm32) = {
 	.platdata_auto_alloc_size = sizeof(struct stm32x7_serial_platdata),
 	.ops = &stm32_serial_ops,
 	.probe = stm32_serial_probe,
-#if !CONFIG_IS_ENABLED(OF_CONTROL)
 	.flags = DM_FLAG_PRE_RELOC,
-#endif
 };
 
 #ifdef CONFIG_DEBUG_UART_STM32
@@ -269,6 +258,7 @@ static inline void _debug_uart_init(void)
 	_stm32_serial_setbrg(base, uart_info,
 			     CONFIG_DEBUG_UART_CLOCK,
 			     CONFIG_BAUDRATE);
+	printf("DEBUG done\n");
 }
 
 static inline void _debug_uart_putc(int c)
@@ -277,7 +267,7 @@ static inline void _debug_uart_putc(int c)
 	struct stm32_uart_info *uart_info = _debug_uart_info();
 
 	while (_stm32_serial_putc(base, uart_info, c) == -EAGAIN)
-		;
+		WATCHDOG_RESET();
 }
 
 DEBUG_UART_FUNCS

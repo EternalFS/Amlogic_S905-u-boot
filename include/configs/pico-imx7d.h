@@ -46,7 +46,7 @@
 #define CONFIG_DFU_ENV_SETTINGS \
 	"dfu_alt_info=" \
 		"spl raw 0x2 0x400;" \
-		"u-boot raw 0x8a 0x1000;" \
+		"u-boot raw 0x8a 0x400;" \
 		"/boot/zImage ext4 0 1;" \
 		"/boot/imx7d-pico-hobbit.dtb ext4 0 1;" \
 		"/boot/imx7d-pico-pi.dtb ext4 0 1;" \
@@ -58,17 +58,16 @@
 	"bootmenu_1=Boot using PICO-Pi baseboard=" \
 		"setenv fdtfile imx7d-pico-pi.dtb\0" \
 
+#define CONFIG_SUPPORT_EMMC_BOOT /* eMMC specific */
 #define CONFIG_SYS_MMC_IMG_LOAD_PART	1
 
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	"script=boot.scr\0" \
 	"image=zImage\0" \
-	"splashpos=m,m\0" \
 	"console=ttymxc4\0" \
 	"fdt_high=0xffffffff\0" \
 	"initrd_high=0xffffffff\0" \
 	"fdtfile=" CONFIG_DEFAULT_FDT_FILE "\0" \
-	"videomode=video=ctfb:x:800,y:480,depth:24,mode:0,pclk:30000,le:46,ri:210,up:22,lo:23,hs:20,vs:10,sync:0,vmode:0\0" \
 	BOOTMENU_ENV \
 	"fdt_addr=0x83000000\0" \
 	"fdt_addr_r=0x83000000\0" \
@@ -132,32 +131,10 @@
 #define CONFIG_POWER_PFUZE3000
 #define CONFIG_POWER_PFUZE3000_I2C_ADDR	0x08
 
-#ifdef CONFIG_VIDEO
-#define CONFIG_VIDEO_MXS
-#define CONFIG_VIDEO_LOGO
-#define CONFIG_SPLASH_SCREEN
-#define CONFIG_SPLASH_SCREEN_ALIGN
-#define CONFIG_BMP_16BPP
-#define CONFIG_VIDEO_BMP_RLE8
-#define CONFIG_VIDEO_BMP_LOGO
-#endif
-
 /* FLASH and environment organization */
 #define CONFIG_ENV_SIZE			SZ_8K
 
-/* Environment starts at 768k = 768 * 1024 = 786432 */
-#define CONFIG_ENV_OFFSET		786432
-/*
- * Detect overlap between U-Boot image and environment area in build-time
- *
- * CONFIG_BOARD_SIZE_LIMIT = CONFIG_ENV_OFFSET - u-boot.img offset
- * CONFIG_BOARD_SIZE_LIMIT = 768k - 69k = 699k = 715776
- *
- * Currently CONFIG_BOARD_SIZE_LIMIT does not handle expressions, so
- * write the direct value here
- */
-#define CONFIG_BOARD_SIZE_LIMIT		715776
-
+#define CONFIG_ENV_OFFSET			(8 * SZ_64K)
 #define CONFIG_SYS_FSL_USDHC_NUM		2
 
 #define CONFIG_SYS_MMC_ENV_DEV			0

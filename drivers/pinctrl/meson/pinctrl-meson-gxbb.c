@@ -11,7 +11,7 @@
 #include <dm/pinctrl.h>
 #include <dt-bindings/gpio/meson-gxbb-gpio.h>
 
-#include "pinctrl-meson-gx.h"
+#include "pinctrl-meson.h"
 
 #define EE_OFF	15
 
@@ -144,7 +144,6 @@ static struct meson_pmx_group meson_gxbb_periphs_groups[] = {
 	GPIO_GROUP(GPIODV_15, EE_OFF),
 	GPIO_GROUP(GPIODV_16, EE_OFF),
 	GPIO_GROUP(GPIODV_17, EE_OFF),
-	GPIO_GROUP(GPIODV_18, EE_OFF),
 	GPIO_GROUP(GPIODV_19, EE_OFF),
 	GPIO_GROUP(GPIODV_20, EE_OFF),
 	GPIO_GROUP(GPIODV_21, EE_OFF),
@@ -203,6 +202,8 @@ static struct meson_pmx_group meson_gxbb_periphs_groups[] = {
 	GPIO_GROUP(GPIOCLK_1, EE_OFF),
 	GPIO_GROUP(GPIOCLK_2, EE_OFF),
 	GPIO_GROUP(GPIOCLK_3, EE_OFF),
+
+	GPIO_GROUP(GPIO_TEST_N, EE_OFF),
 
 	/* Bank X */
 	GROUP(uart_tx_a,	4,	13),
@@ -269,8 +270,6 @@ static struct meson_pmx_group meson_gxbb_aobus_groups[] = {
 	GPIO_GROUP(GPIOAO_12, 0),
 	GPIO_GROUP(GPIOAO_13, 0),
 
-	GPIO_GROUP(GPIO_TEST_N, 0),
-
 	/* bank AO */
 	GROUP(uart_tx_ao_b,	0,	26),
 	GROUP(uart_rx_ao_b,	0,	25),
@@ -319,8 +318,6 @@ static const char * const gpio_periphs_groups[] = {
 	"GPIOX_10", "GPIOX_11", "GPIOX_12", "GPIOX_13", "GPIOX_14",
 	"GPIOX_15", "GPIOX_16", "GPIOX_17", "GPIOX_18", "GPIOX_19",
 	"GPIOX_20", "GPIOX_21", "GPIOX_22",
-
-	"GPIOCLK_0", "GPIOCLK_1", "GPIOCLK_2", "GPIOCLK_3",
 };
 
 static const char * const emmc_groups[] = {
@@ -420,7 +417,6 @@ struct meson_pinctrl_data meson_gxbb_periphs_pinctrl_data = {
 	.num_groups	= ARRAY_SIZE(meson_gxbb_periphs_groups),
 	.num_funcs	= ARRAY_SIZE(meson_gxbb_periphs_functions),
 	.num_banks	= ARRAY_SIZE(meson_gxbb_periphs_banks),
-	.gpio_driver	= &meson_gx_gpio_driver,
 };
 
 struct meson_pinctrl_data meson_gxbb_aobus_pinctrl_data = {
@@ -433,7 +429,6 @@ struct meson_pinctrl_data meson_gxbb_aobus_pinctrl_data = {
 	.num_groups	= ARRAY_SIZE(meson_gxbb_aobus_groups),
 	.num_funcs	= ARRAY_SIZE(meson_gxbb_aobus_functions),
 	.num_banks	= ARRAY_SIZE(meson_gxbb_aobus_banks),
-	.gpio_driver	= &meson_gx_gpio_driver,
 };
 
 static const struct udevice_id meson_gxbb_pinctrl_match[] = {
@@ -454,5 +449,5 @@ U_BOOT_DRIVER(meson_gxbb_pinctrl) = {
 	.of_match = of_match_ptr(meson_gxbb_pinctrl_match),
 	.probe = meson_pinctrl_probe,
 	.priv_auto_alloc_size = sizeof(struct meson_pinctrl),
-	.ops = &meson_gx_pinctrl_ops,
+	.ops = &meson_pinctrl_ops,
 };

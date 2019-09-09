@@ -47,14 +47,14 @@ static u32 __secure stm32mp_get_gicd_base_address(void)
 	return (periphbase & CBAR_MASK) + GIC_DIST_OFFSET;
 }
 
-static void __secure stm32mp_raise_sgi0(int cpu)
+static void __secure stm32mp_smp_kick_all_cpus(void)
 {
 	u32 gic_dist_addr;
 
 	gic_dist_addr = stm32mp_get_gicd_base_address();
 
-	/* ask cpu with SGI0 */
-	writel((BIT(cpu) << 16), gic_dist_addr + GICD_SGIR);
+	/* kick all CPUs (except this one) by writing to GICD_SGIR */
+	writel(1U << 24, gic_dist_addr + GICD_SGIR);
 }
 
 void __secure psci_arch_cpu_entry(void)
@@ -62,9 +62,6 @@ void __secure psci_arch_cpu_entry(void)
 	u32 cpu = psci_get_cpu_id();
 
 	psci_set_state(cpu, PSCI_AFFINITY_LEVEL_ON);
-
-	/* reset magic in TAMP register */
-	writel(0xFFFFFFFF, TAMP_BACKUP_MAGIC_NUMBER);
 }
 
 int __secure psci_features(u32 function_id, u32 psci_fid)
@@ -106,13 +103,7 @@ int __secure psci_affinity_info(u32 function_id, u32 target_affinity,
 
 int __secure psci_migrate_info_type(u32 function_id)
 {
-	/*
-	 * in Power_State_Coordination_Interface_PDD_v1_1_DEN0022D.pdf
-	 * return 2 = Trusted OS is either not present or does not require
-	 * migration, system of this type does not require the caller
-	 * to use the MIGRATE function.
-	 * MIGRATE function calls return NOT_SUPPORTED.
-	 */
+	/* Trusted OS is either not present or does not require migration */
 	return 2;
 }
 
@@ -130,16 +121,6 @@ int __secure psci_cpu_on(u32 function_id, u32 target_cpu, u32 pc,
 	if (psci_state[cpu] == PSCI_AFFINITY_LEVEL_ON)
 		return ARM_PSCI_RET_ALREADY_ON;
 
-	/* reset magic in TAMP register */
-	if (readl(TAMP_BACKUP_MAGIC_NUMBER))
-		writel(0xFFFFFFFF, TAMP_BACKUP_MAGIC_NUMBER);
-	/*
-	 * ROM code need a first SGI0 after core reset
-	 * core is ready when magic is set to 0 in ROM code
-	 */
-	while (readl(TAMP_BACKUP_MAGIC_NUMBER))
-		stm32mp_raise_sgi0(cpu);
-
 	/* store target PC and context id*/
 	psci_save(cpu, pc, context_id);
 
@@ -155,8 +136,7 @@ int __secure psci_cpu_on(u32 function_id, u32 target_cpu, u32 pc,
 		writel(BOOT_API_A7_CORE0_MAGIC_NUMBER,
 		       TAMP_BACKUP_MAGIC_NUMBER);
 
-	/* Generate an IT to start the core */
-	stm32mp_raise_sgi0(cpu);
+	stm32mp_smp_kick_all_cpus();
 
 	return ARM_PSCI_RET_SUCCESS;
 }

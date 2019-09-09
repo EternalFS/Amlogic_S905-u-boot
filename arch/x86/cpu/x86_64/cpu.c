@@ -61,8 +61,3 @@ int print_cpuinfo(void)
 {
 	return 0;
 }
-
-int x86_cpu_reinit_f(void)
-{
-	return 0;
-}

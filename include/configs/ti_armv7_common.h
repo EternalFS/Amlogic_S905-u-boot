@@ -52,7 +52,7 @@
 
 #define DEFAULT_FIT_TI_ARGS \
 	"boot_fit=0\0" \
-	"fit_loadaddr=0x90000000\0" \
+	"fit_loadaddr=0x87000000\0" \
 	"fit_bootfile=fitImage\0" \
 	"update_to_fit=setenv loadaddr ${fit_loadaddr}; setenv bootfile ${fit_bootfile}\0" \
 	"loadfit=run args_mmc; bootm ${loadaddr}#${fdtfile};\0" \
@@ -74,10 +74,24 @@
 /* Timer information. */
 #define CONFIG_SYS_PTV			2	/* Divisor: 2^(PTV+1) => 8 */
 
-/* If DM_I2C, enable non-DM I2C support */
-#if !defined(CONFIG_DM_I2C)
+/*
+ * Disable DM_* for SPL build and can be re-enabled after adding
+ * DM support in SPL
+ */
+#ifdef CONFIG_SPL_BUILD
+#undef CONFIG_DM_I2C
+#endif
+
+/* I2C IP block */
 #define CONFIG_I2C
+#ifndef CONFIG_DM_I2C
 #define CONFIG_SYS_I2C
+#else
+/*
+ * Enable CONFIG_DM_I2C_COMPAT temporarily until all the i2c client
+ * devices are adopted to DM
+ */
+#define CONFIG_DM_I2C_COMPAT
 #endif
 
 /*
@@ -151,9 +165,7 @@
 
 /* FAT sd card locations. */
 #define CONFIG_SYS_MMCSD_FS_BOOT_PARTITION	1
-#ifndef CONFIG_SPL_FS_LOAD_PAYLOAD_NAME
 #define CONFIG_SPL_FS_LOAD_PAYLOAD_NAME	"u-boot.img"
-#endif
 
 #ifdef CONFIG_SPL_OS_BOOT
 /* FAT */

@@ -2,12 +2,8 @@
 /*
  * Copyright (c) 2017 Tuomas Tynkkynen
  */
-
 #include <common.h>
-#include <dm.h>
 #include <fdtdec.h>
-#include <virtio_types.h>
-#include <virtio.h>
 
 #ifdef CONFIG_ARM64
 #include <asm/armv8/mmu.h>
@@ -62,12 +58,6 @@ struct mm_region *mem_map = qemu_arm64_mem_map;
 
 int board_init(void)
 {
-	/*
-	 * Make sure virtio bus is enumerated so that peripherals
-	 * on the virtio bus can be discovered by their drivers
-	 */
-	virtio_init();
-
 	return 0;
 }
 

@@ -577,7 +577,7 @@ static int nvme_get_info_from_identify(struct nvme_dev *dev)
 	int ret;
 	int shift = NVME_CAP_MPSMIN(dev->cap) + 12;
 
-	ret = nvme_identify(dev, 0, 1, (dma_addr_t)(long)ctrl);
+	ret = nvme_identify(dev, 0, 1, (dma_addr_t)ctrl);
 	if (ret)
 		return -EIO;
 
@@ -646,7 +646,7 @@ static int nvme_blk_probe(struct udevice *udev)
 	ns->dev = ndev;
 	/* extract the namespace id from the block device name */
 	ns->ns_id = trailing_strtol(udev->name) + 1;
-	if (nvme_identify(ndev, ns->ns_id, 0, (dma_addr_t)(long)id))
+	if (nvme_identify(ndev, ns->ns_id, 0, (dma_addr_t)id))
 		return -EIO;
 
 	flbas = id->flbas & NVME_NS_FLBAS_LBA_MASK;
@@ -664,6 +664,7 @@ static int nvme_blk_probe(struct udevice *udev)
 	sprintf(desc->vendor, "0x%.4x", pplat->vendor);
 	memcpy(desc->product, ndev->serial, sizeof(ndev->serial));
 	memcpy(desc->revision, ndev->firmware_rev, sizeof(ndev->firmware_rev));
+	part_init(desc);
 
 	return 0;
 }

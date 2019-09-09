@@ -97,8 +97,6 @@ int dram_init(void)
 	ddrmc_init();
 #endif
 
-	erratum_a008850_post();
-
 	gd->ram_size = DDR_SIZE;
 	return 0;
 }

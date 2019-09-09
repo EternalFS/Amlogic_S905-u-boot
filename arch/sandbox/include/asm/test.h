@@ -59,6 +59,14 @@ void sandbox_i2c_eeprom_set_test_mode(struct udevice *dev,
 
 void sandbox_i2c_eeprom_set_offset_len(struct udevice *dev, int offset_len);
 
+/*
+ * sandbox_timer_add_offset()
+ *
+ * Allow tests to add to the time reported through lib/time.c functions
+ * offset: number of milliseconds to advance the system time
+ */
+void sandbox_timer_add_offset(unsigned long offset);
+
 /**
  * sandbox_i2c_rtc_set_offset() - set the time offset from system/base time
  *
@@ -104,77 +112,5 @@ int sandbox_osd_get_mem(struct udevice *dev, u8 *buf, size_t buflen);
  */
 int sandbox_pwm_get_config(struct udevice *dev, uint channel, uint *period_nsp,
 			   uint *duty_nsp, bool *enablep, bool *polarityp);
-
-/**
- * sandbox_sf_set_block_protect() - Set the BP bits of the status register
- *
- * @dev: Device to update
- * @bp_mask: BP bits to set (bits 2:0, so a value of 0 to 7)
- */
-void sandbox_sf_set_block_protect(struct udevice *dev, int bp_mask);
-
-/**
- * sandbox_get_codec_params() - Read back codec parameters
- *
- * This reads back the parameters set by audio_codec_set_params() for the
- * sandbox audio driver. Arguments are as for that function.
- */
-void sandbox_get_codec_params(struct udevice *dev, int *interfacep, int *ratep,
-			      int *mclk_freqp, int *bits_per_samplep,
-			      uint *channelsp);
-
-/**
- * sandbox_get_i2s_sum() - Read back the sum of the audio data so far
- *
- * This data is provided to the sandbox driver by the I2S tx_data() method.
- *
- * @dev: Device to check
- * @return sum of audio data
- */
-int sandbox_get_i2s_sum(struct udevice *dev);
-
-/**
- * sandbox_get_setup_called() - Returns the number of times setup(*) was called
- *
- * This is used in the sound test
- *
- * @dev: Device to check
- * @return call count for the setup() method
- */
-int sandbox_get_setup_called(struct udevice *dev);
-
-/**
- * sandbox_get_sound_sum() - Read back the sum of the sound data so far
- *
- * This data is provided to the sandbox driver by the sound play() method.
- *
- * @dev: Device to check
- * @return sum of audio data
- */
-int sandbox_get_sound_sum(struct udevice *dev);
-
-/**
- * sandbox_set_allow_beep() - Set whether the 'beep' interface is supported
- *
- * @dev: Device to update
- * @allow: true to allow the start_beep() method, false to disallow it
- */
-void sandbox_set_allow_beep(struct udevice *dev, bool allow);
-
-/**
- * sandbox_get_beep_frequency() - Get the frequency of the current beep
- *
- * @dev: Device to check
- * @return frequency of beep, if there is an active beep, else 0
- */
-int sandbox_get_beep_frequency(struct udevice *dev);
-
-/**
- * sandbox_get_pch_spi_protect() - Get the PCI SPI protection status
- *
- * @dev: Device to check
- * @return 0 if not protected, 1 if protected
- */
-int sandbox_get_pch_spi_protect(struct udevice *dev);
 
 #endif

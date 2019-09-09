@@ -49,7 +49,7 @@ struct efi_device_path;
 
 typedef struct {
 	u8 b[16];
-} efi_guid_t __attribute__((aligned(8)));
+} efi_guid_t;
 
 #define EFI_BITS_PER_LONG	(sizeof(long) * 8)
 
@@ -96,7 +96,7 @@ typedef struct {
 typedef unsigned long efi_status_t;
 typedef u64 efi_physical_addr_t;
 typedef u64 efi_virtual_addr_t;
-typedef struct efi_object *efi_handle_t;
+typedef void *efi_handle_t;
 
 #define EFI_GUID(a, b, c, d0, d1, d2, d3, d4, d5, d6, d7) \
 	{{ (a) & 0xff, ((a) >> 8) & 0xff, ((a) >> 16) & 0xff, \
@@ -168,10 +168,6 @@ enum efi_mem_type {
 	 * part of the processor.
 	 */
 	EFI_PAL_CODE,
-	/*
-	 * Non-volatile memory.
-	 */
-	EFI_PERSISTENT_MEMORY_TYPE,
 
 	EFI_MAX_MEMORY_TYPE,
 	EFI_TABLE_END,	/* For efi_build_mem_table() */
@@ -194,7 +190,7 @@ enum efi_mem_type {
 #define EFI_MEM_DESC_VERSION	1
 
 #define EFI_PAGE_SHIFT		12
-#define EFI_PAGE_SIZE		(1ULL << EFI_PAGE_SHIFT)
+#define EFI_PAGE_SIZE		(1UL << EFI_PAGE_SHIFT)
 #define EFI_PAGE_MASK		(EFI_PAGE_SIZE - 1)
 
 struct efi_mem_desc {

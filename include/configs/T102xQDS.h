@@ -29,6 +29,7 @@
 #ifdef CONFIG_RAMBOOT_PBL
 #define CONFIG_SYS_FSL_PBL_PBI board/freescale/t102xqds/t1024_pbi.cfg
 #define CONFIG_SPL_FLUSH_IMAGE
+#define CONFIG_SPL_TEXT_BASE		0xFFFD8000
 #define CONFIG_SPL_PAD_TO		0x40000
 #define CONFIG_SPL_MAX_SIZE		0x28000
 #define RESET_VECTOR_OFFSET		0x27FFC
@@ -128,6 +129,10 @@
 #endif
 
 #if defined(CONFIG_SPIFLASH)
+#define CONFIG_ENV_SPI_BUS		0
+#define CONFIG_ENV_SPI_CS		0
+#define CONFIG_ENV_SPI_MAX_HZ		10000000
+#define CONFIG_ENV_SPI_MODE		0
 #define CONFIG_ENV_SIZE			0x2000		/* 8KB */
 #define CONFIG_ENV_OFFSET		0x100000	/* 1MB */
 #define CONFIG_ENV_SECT_SIZE		0x10000
@@ -285,7 +290,7 @@ unsigned long get_board_ddr_clk(void);
 				| CSPR_PORT_SIZE_8 \
 				| CSPR_MSEL_GPCM \
 				| CSPR_V)
-#define CONFIG_SYS_AMASK3	IFC_AMASK(64 * 1024)
+#define CONFIG_SYS_AMASK3	IFC_AMASK(4*1024)
 #define CONFIG_SYS_CSOR3	0x0
 /* QIXIS Timing parameters for IFC CS3 */
 #define CONFIG_SYS_CS3_FTIM0		(FTIM0_GPCM_TACSE(0x0e) | \
@@ -496,6 +501,9 @@ unsigned long get_board_ddr_clk(void);
 /*
  * eSPI - Enhanced SPI
  */
+#define CONFIG_SPI_FLASH_BAR
+#define CONFIG_SF_DEFAULT_SPEED	 10000000
+#define CONFIG_SF_DEFAULT_MODE	  0
 
 /*
  * General PCIe
@@ -641,12 +649,14 @@ unsigned long get_board_ddr_clk(void);
 
 #define CONFIG_SYS_DPAA_FMAN
 
+#define CONFIG_QE
 /* Default address of microcode for the Linux FMan driver */
 #if defined(CONFIG_SPIFLASH)
 /*
  * env is stored at 0x100000, sector size is 0x10000, ucode is stored after
  * env, so we got 0x110000.
  */
+#define CONFIG_SYS_QE_FW_IN_SPIFLASH
 #define CONFIG_SYS_FMAN_FW_ADDR	0x110000
 #define CONFIG_SYS_QE_FW_ADDR	0x130000
 #elif defined(CONFIG_SDCARD)
@@ -655,9 +665,11 @@ unsigned long get_board_ddr_clk(void);
  * about 1MB (2048 blocks), Env is stored after the image, and the env size is
  * 0x2000 (16 blocks), 8 + 2048 + 16 = 2072, enlarge it to 2080(0x820).
  */
+#define CONFIG_SYS_QE_FMAN_FW_IN_MMC
 #define CONFIG_SYS_FMAN_FW_ADDR		(512 * 0x820)
 #define CONFIG_SYS_QE_FW_ADDR		(512 * 0x920)
 #elif defined(CONFIG_NAND)
+#define CONFIG_SYS_QE_FMAN_FW_IN_NAND
 #define CONFIG_SYS_FMAN_FW_ADDR		(11 * CONFIG_SYS_NAND_BLOCK_SIZE)
 #define CONFIG_SYS_QE_FW_ADDR		(12 * CONFIG_SYS_NAND_BLOCK_SIZE)
 #elif defined(CONFIG_SRIO_PCIE_BOOT_SLAVE)
@@ -668,8 +680,10 @@ unsigned long get_board_ddr_clk(void);
  * slave SRIO or PCIE outbound window->master inbound window->
  * master LAW->the ucode address in master's memory space.
  */
+#define CONFIG_SYS_QE_FMAN_FW_IN_REMOTE
 #define CONFIG_SYS_FMAN_FW_ADDR 0xFFE00000
 #else
+#define CONFIG_SYS_QE_FMAN_FW_IN_NOR
 #define CONFIG_SYS_FMAN_FW_ADDR		0xEFF00000
 #define CONFIG_SYS_QE_FW_ADDR		0xEFE00000
 #endif
@@ -678,6 +692,7 @@ unsigned long get_board_ddr_clk(void);
 #endif /* CONFIG_NOBQFMAN */
 
 #ifdef CONFIG_SYS_DPAA_FMAN
+#define CONFIG_FMAN_ENET
 #define CONFIG_PHYLIB_10G
 #define CONFIG_PHY_VITESSE
 #define CONFIG_PHY_REALTEK

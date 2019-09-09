@@ -17,8 +17,6 @@
 		gpio9 = &gpioj;
 		gpio10 = &gpiok;
 		gpio25 = &gpioz;
-		pinctrl0 = &pinctrl;
-		pinctrl1 = &pinctrl_z;
 	};
 
 	config {
@@ -39,10 +37,6 @@
 			u-boot,dm-pre-reloc;
 		};
 	};
-};
-
-&bsec {
-	u-boot,dm-pre-reloc;
 };
 
 &clk_hsi {

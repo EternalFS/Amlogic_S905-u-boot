@@ -5,20 +5,18 @@
  */
 
 #include <common.h>
+#include <asm/arch/bootrom.h>
+#include <asm/arch/clock.h>
+#include <asm/arch/grf_rk3399.h>
+#include <asm/arch/hardware.h>
+#include <asm/arch/periph.h>
+#include <asm/io.h>
 #include <debug_uart.h>
 #include <dm.h>
+#include <dm/pinctrl.h>
 #include <ram.h>
 #include <spl.h>
-#include <spl_gpio.h>
 #include <syscon.h>
-#include <asm/io.h>
-#include <asm/arch-rockchip/bootrom.h>
-#include <asm/arch-rockchip/clock.h>
-#include <asm/arch-rockchip/grf_rk3399.h>
-#include <asm/arch-rockchip/hardware.h>
-#include <asm/arch-rockchip/periph.h>
-#include <asm/arch-rockchip/sys_proto.h>
-#include <dm/pinctrl.h>
 
 void board_return_to_bootrom(void)
 {
@@ -127,6 +125,33 @@ void secure_timer_init(void)
 	writel(TIMER_EN | TIMER_FMODE, TIMER_CHN10_BASE + TIMER_CONTROL_REG);
 }
 
+void board_debug_uart_init(void)
+{
+#define GRF_BASE	0xff770000
+	struct rk3399_grf_regs * const grf = (void *)GRF_BASE;
+
+#if defined(CONFIG_DEBUG_UART_BASE) && (CONFIG_DEBUG_UART_BASE == 0xff180000)
+	/* Enable early UART0 on the RK3399 */
+	rk_clrsetreg(&grf->gpio2c_iomux,
+		     GRF_GPIO2C0_SEL_MASK,
+		     GRF_UART0BT_SIN << GRF_GPIO2C0_SEL_SHIFT);
+	rk_clrsetreg(&grf->gpio2c_iomux,
+		     GRF_GPIO2C1_SEL_MASK,
+		     GRF_UART0BT_SOUT << GRF_GPIO2C1_SEL_SHIFT);
+#else
+	/* Enable early UART2 channel C on the RK3399 */
+	rk_clrsetreg(&grf->gpio4c_iomux,
+		     GRF_GPIO4C3_SEL_MASK,
+		     GRF_UART2DGBC_SIN << GRF_GPIO4C3_SEL_SHIFT);
+	rk_clrsetreg(&grf->gpio4c_iomux,
+		     GRF_GPIO4C4_SEL_MASK,
+		     GRF_UART2DBGC_SOUT << GRF_GPIO4C4_SEL_SHIFT);
+	/* Set channel C as UART2 input */
+	rk_clrsetreg(&grf->soc_con7,
+		     GRF_UART_DBG_SEL_MASK,
+		     GRF_UART_DBG_SEL_C << GRF_UART_DBG_SEL_SHIFT);
+#endif
+}
 
 void board_init_f(ulong dummy)
 {
@@ -136,23 +161,8 @@ void board_init_f(ulong dummy)
 	struct rk3399_grf_regs *grf;
 	int ret;
 
-#ifdef CONFIG_DEBUG_UART
-	debug_uart_init();
-
-# ifdef CONFIG_TARGET_CHROMEBOOK_BOB
-	int sum, i;
-
-	/*
-	 * Add a delay and ensure that the compiler does not optimise this out.
-	 * This is needed since the power rails tail a while to turn on, and
-	 * we get garbage serial output otherwise.
-	 */
-	sum = 0;
-	for (i = 0; i < 150000; i++)
-		sum += i;
-	gru_dummy_function(sum);
-#endif /* CONFIG_TARGET_CHROMEBOOK_BOB */
-
+#define EARLY_UART
+#ifdef EARLY_UART
 	/*
 	 * Debug UART can be used from here if required:
 	 *
@@ -161,6 +171,7 @@ void board_init_f(ulong dummy)
 	 * printhex8(0x1234);
 	 * printascii("string");
 	 */
+	debug_uart_init();
 	printascii("U-Boot SPL board init\n");
 #endif
 
@@ -191,13 +202,13 @@ void board_init_f(ulong dummy)
 
 	ret = uclass_get_device(UCLASS_PINCTRL, 0, &pinctrl);
 	if (ret) {
-		pr_err("Pinctrl init failed: %d\n", ret);
+		debug("Pinctrl init failed: %d\n", ret);
 		return;
 	}
 
 	ret = uclass_get_device(UCLASS_RAM, 0, &dev);
 	if (ret) {
-		pr_err("DRAM init failed: %d\n", ret);
+		debug("DRAM init failed: %d\n", ret);
 		return;
 	}
 }

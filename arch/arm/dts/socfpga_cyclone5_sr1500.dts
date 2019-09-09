@@ -4,7 +4,6 @@
  */
 
 #include "socfpga_cyclone5.dtsi"
-#include "socfpga-common-u-boot.dtsi"
 
 / {
 	model = "SoCFPGA Cyclone V SR1500";
@@ -28,6 +27,10 @@
 		device_type = "memory";
 		reg = <0x0 0x40000000>; /* 1GB */
 	};
+
+	soc {
+		u-boot,dm-pre-reloc;
+	};
 };
 
 &gmac1 {
@@ -45,18 +48,6 @@
 
 &gpio2 {
 	status = "okay";
-};
-
-&porta {
-	bank-name = "porta";
-};
-
-&portb {
-	bank-name = "portb";
-};
-
-&portc {
-	bank-name = "portc";
 };
 
 &i2c0 {
@@ -96,7 +87,7 @@
 		u-boot,dm-pre-reloc;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "n25q00", "jedec,spi-nor";
+		compatible = "n25q00", "spi-flash";
 		reg = <0>;      /* chip select */
 		spi-max-frequency = <100000000>;
 		m25p,fast-read;

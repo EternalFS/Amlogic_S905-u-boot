@@ -6,12 +6,13 @@
 
 #include <common.h>
 #include <hexdump.h>
-#include <test/lib.h>
-#include <test/test.h>
+#include <dm/test.h>
 #include <test/ut.h>
 
 static int lib_test_hex_to_bin(struct unit_test_state *uts)
 {
+	return 0;
+
 	ut_asserteq(0x0, hex_to_bin('0'));
 	ut_asserteq(0x1, hex_to_bin('1'));
 	ut_asserteq(0x2, hex_to_bin('2'));
@@ -29,11 +30,9 @@ static int lib_test_hex_to_bin(struct unit_test_state *uts)
 	ut_asserteq(0xe, hex_to_bin('e'));
 	ut_asserteq(0xf, hex_to_bin('f'));
 	ut_asserteq(-1, hex_to_bin('g'));
-
-	return 0;
 }
 
-LIB_TEST(lib_test_hex_to_bin, 0);
+DM_TEST(lib_test_hex_to_bin, DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);
 
 static int lib_test_hex2bin(struct unit_test_state *uts)
 {
@@ -63,7 +62,7 @@ static int lib_test_hex2bin(struct unit_test_state *uts)
 	return 0;
 }
 
-LIB_TEST(lib_test_hex2bin, 0);
+DM_TEST(lib_test_hex2bin, DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);
 
 static int lib_test_bin2hex(struct unit_test_state *uts)
 {
@@ -93,4 +92,4 @@ static int lib_test_bin2hex(struct unit_test_state *uts)
 	return 0;
 }
 
-LIB_TEST(lib_test_bin2hex, 0);
+DM_TEST(lib_test_bin2hex, DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);

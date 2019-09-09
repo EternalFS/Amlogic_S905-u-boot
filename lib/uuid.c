@@ -238,8 +238,6 @@ void gen_rand_uuid(unsigned char *uuid_bin)
 	unsigned int *ptr = (unsigned int *)&uuid;
 	int i;
 
-	srand(get_ticks() + rand());
-
 	/* Set all fields randomly */
 	for (i = 0; i < sizeof(struct uuid) / sizeof(*ptr); i++)
 		*(ptr + i) = cpu_to_be32(rand());
@@ -273,7 +271,7 @@ void gen_rand_uuid_str(char *uuid_str, int str_format)
 	uuid_bin_to_str(uuid_bin, uuid_str, str_format);
 }
 
-#if !defined(CONFIG_SPL_BUILD) && defined(CONFIG_CMD_UUID)
+#ifdef CONFIG_CMD_UUID
 int do_uuid(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	char uuid[UUID_STR_LEN + 1];

@@ -15,6 +15,7 @@
  * SPL
  */
 
+#define CONFIG_SPL_TEXT_BASE		0xffff0000
 #define CONFIG_SPL_MAX_SIZE		0x0000fff0
 #define CONFIG_SPL_STACK		0x00020000
 #define CONFIG_SPL_BSS_START_ADDR	0x00020000
@@ -28,6 +29,7 @@
  * High Level Configuration Options (easy to change)
  */
 
+#define CONFIG_MARVELL		1
 #define CONFIG_FEROCEON		1	/* CPU Core subversion */
 #define CONFIG_88F5182		1	/* SOC Name */
 

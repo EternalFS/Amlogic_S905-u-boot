@@ -24,7 +24,6 @@
 /mksunxiboot
 /mxsboot
 /ncb
-/prelink-riscv
 /proftool
 /relocate-rela
 /sunxi-spl-image-builder

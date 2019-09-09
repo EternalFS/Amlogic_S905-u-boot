@@ -16,7 +16,7 @@
 
 #define EFI_ST_SUCCESS 0
 #define EFI_ST_FAILURE 1
-#define EFI_ST_SUCCESS_STR L"SUCCESS"
+
 /*
  * Prints a message.
  */
@@ -93,6 +93,17 @@ u16 *efi_st_translate_char(u16 code);
 u16 *efi_st_translate_code(u16 code);
 
 /*
+ * Compare memory.
+ * We cannot use lib/string.c due to different CFLAGS values.
+ *
+ * @buf1:	first buffer
+ * @buf2:	second buffer
+ * @length:	number of bytes to compare
+ * @return:	0 if both buffers contain the same bytes
+ */
+int efi_st_memcmp(const void *buf1, const void *buf2, size_t length);
+
+/*
  * Compare an u16 string to a char string.
  *
  * @buf1:	u16 string
@@ -118,6 +129,7 @@ u16 efi_st_get_key(void);
  * @setup:	set up the unit test
  * @teardown:	tear down the unit test
  * @execute:	execute the unit test
+ * @setup_ok:	setup was successful (set at runtime)
  * @on_request:	test is only executed on request
  */
 struct efi_unit_test {
@@ -127,6 +139,7 @@ struct efi_unit_test {
 		     const struct efi_system_table *systable);
 	int (*execute)(void);
 	int (*teardown)(void);
+	int setup_ok;
 	bool on_request;
 };
 

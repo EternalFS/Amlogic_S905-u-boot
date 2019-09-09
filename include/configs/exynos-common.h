@@ -34,6 +34,9 @@
 
 /* select serial console configuration */
 
+/* SD/MMC configuration */
+#define CONFIG_BOUNCE_BUFFER
+
 /* PWM */
 #define CONFIG_PWM
 

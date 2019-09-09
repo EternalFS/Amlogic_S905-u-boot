@@ -403,21 +403,14 @@ int main(int argc, char **argv)
 			exit (EXIT_FAILURE);
 		}
 
-		if (params.fflag) {
-			/*
-			 * Verifies the header format based on the expected header for image
-			 * type in tparams
-			 */
-			retval = imagetool_verify_print_header_by_type(ptr, &sbuf,
-					tparams, &params);
-		} else {
-			/**
-			 * When listing the image, we are not given the image type. Simply check all
-			 * image types to find one that matches our header
-			 */
-			retval = imagetool_verify_print_header(ptr, &sbuf,
-					tparams, &params);
-		}
+		/*
+		 * scan through mkimage registry for all supported image types
+		 * and verify the input image file header for match
+		 * Print the image information for matched image type
+		 * Returns the error code if not matched
+		 */
+		retval = imagetool_verify_print_header(ptr, &sbuf,
+				tparams, &params);
 
 		(void) munmap((void *)ptr, sbuf.st_size);
 		(void) close (ifd);
@@ -535,13 +528,6 @@ int main(int argc, char **argv)
 			int ret;
 
 			ret = imx8image_copy_image(ifd, &params);
-			if (ret)
-				return ret;
-		} else if (params.type == IH_TYPE_IMX8MIMAGE) {
-			/* i.MX8M has special Image format */
-			int ret;
-
-			ret = imx8mimage_copy_image(ifd, &params);
 			if (ret)
 				return ret;
 		} else {

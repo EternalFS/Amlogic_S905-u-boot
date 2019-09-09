@@ -38,6 +38,7 @@
 #define CONFIG_SYS_MONITOR_BASE		0x00000000
 #define CONFIG_SYS_MONITOR_LEN		(256 * 1024)
 #define CONFIG_SYS_MALLOC_LEN		(1 * 1024 * 1024)
+#define CONFIG_SYS_BOOTMAPSZ		(8 * 1024 * 1024)
 
 /* ENV setting */
 #define CONFIG_ENV_ADDR	0xC0000
@@ -52,8 +53,6 @@
 /* SF MTD */
 #if defined(CONFIG_SPI_FLASH_MTD) && !defined(CONFIG_SPL_BUILD)
 #else
-#undef CONFIG_DM_SPI
-#undef CONFIG_DM_SPI_FLASH
 #undef CONFIG_SPI_FLASH_MTD
 #endif
 

@@ -30,7 +30,6 @@ struct fdt_region;
 #define IMAGE_ENABLE_FIT	1
 #define IMAGE_ENABLE_OF_LIBFDT	1
 #define CONFIG_FIT_VERBOSE	1 /* enable fit_format_{error,warning}() */
-#define CONFIG_FIT_ENABLE_RSASSA_PSS_SUPPORT 1
 #define CONFIG_FIT_ENABLE_SHA256_SUPPORT
 #define CONFIG_SHA1
 #define CONFIG_SHA256
@@ -68,6 +67,7 @@ struct fdt_region;
 #   define IMAGE_ENABLE_SHA1	1
 #  endif
 # else
+#  define CONFIG_CRC32		/* FIT images need CRC32 support */
 #  define IMAGE_ENABLE_CRC32	1
 #  define IMAGE_ENABLE_MD5	1
 #  define IMAGE_ENABLE_SHA1	1
@@ -125,8 +125,7 @@ enum ih_category {
  * Operating System Codes
  *
  * The following are exposed to uImage header.
- * New IDs *MUST* be appended at the end of the list and *NEVER*
- * inserted for backward compatibility.
+ * Do not change values for backward compatibility.
  */
 enum {
 	IH_OS_INVALID		= 0,	/* Invalid OS	*/
@@ -164,8 +163,7 @@ enum {
  * CPU Architecture Codes (supported by Linux)
  *
  * The following are exposed to uImage header.
- * New IDs *MUST* be appended at the end of the list and *NEVER*
- * inserted for backward compatibility.
+ * Do not change values for backward compatibility.
  */
 enum {
 	IH_ARCH_INVALID		= 0,	/* Invalid CPU	*/
@@ -238,8 +236,7 @@ enum {
  *	as command interpreter (=> Shell Scripts).
  *
  * The following are exposed to uImage header.
- * New IDs *MUST* be appended at the end of the list and *NEVER*
- * inserted for backward compatibility.
+ * Do not change values for backward compatibility.
  */
 
 enum {
@@ -254,6 +251,7 @@ enum {
 	IH_TYPE_FLATDT,			/* Binary Flat Device Tree Blob	*/
 	IH_TYPE_KWBIMAGE,		/* Kirkwood Boot Image		*/
 	IH_TYPE_IMXIMAGE,		/* Freescale IMXBoot Image	*/
+	IH_TYPE_IMX8IMAGE,		/* Freescale IMX8Boot Image	*/
 	IH_TYPE_UBLIMAGE,		/* Davinci UBL Image		*/
 	IH_TYPE_OMAPIMAGE,		/* TI OMAP Config Header Image	*/
 	IH_TYPE_AISIMAGE,		/* TI Davinci AIS Image		*/
@@ -280,9 +278,6 @@ enum {
 	IH_TYPE_PMMC,            /* TI Power Management Micro-Controller Firmware */
 	IH_TYPE_STM32IMAGE,		/* STMicroelectronics STM32 Image */
 	IH_TYPE_SOCFPGAIMAGE_V1,	/* Altera SOCFPGA A10 Preloader	*/
-	IH_TYPE_MTKIMAGE,		/* MediaTek BootROM loadable Image */
-	IH_TYPE_IMX8MIMAGE,		/* Freescale IMX8MBoot Image	*/
-	IH_TYPE_IMX8IMAGE,		/* Freescale IMX8Boot Image	*/
 
 	IH_TYPE_COUNT,			/* Number of image types */
 };
@@ -291,8 +286,7 @@ enum {
  * Compression Types
  *
  * The following are exposed to uImage header.
- * New IDs *MUST* be appended at the end of the list and *NEVER*
- * inserted for backward compatibility.
+ * Do not change values for backward compatibility.
  */
 enum {
 	IH_COMP_NONE		= 0,	/*  No	 Compression Used	*/
@@ -305,7 +299,6 @@ enum {
 	IH_COMP_COUNT,
 };
 
-#define LZ4F_MAGIC	0x184D2204	/* LZ4 Magic Number		*/
 #define IH_MAGIC	0x27051956	/* Image Magic Number		*/
 #define IH_NMLEN		32	/* Image Name Length		*/
 
@@ -1046,10 +1039,6 @@ int fit_check_format(const void *fit);
 
 int fit_conf_find_compat(const void *fit, const void *fdt);
 int fit_conf_get_node(const void *fit, const char *conf_uname);
-int fit_conf_get_prop_node_count(const void *fit, int noffset,
-		const char *prop_name);
-int fit_conf_get_prop_node_index(const void *fit, int noffset,
-		const char *prop_name, int index);
 
 /**
  * fit_conf_get_prop_node() - Get node refered to by a configuration
@@ -1075,18 +1064,18 @@ int calculate_hash(const void *data, int data_len, const char *algo,
  * At present we only support signing on the host, and verification on the
  * device
  */
-#if defined(USE_HOSTCC)
-# if defined(CONFIG_FIT_SIGNATURE)
+#if defined(CONFIG_FIT_SIGNATURE)
+# ifdef USE_HOSTCC
 #  define IMAGE_ENABLE_SIGN	1
 #  define IMAGE_ENABLE_VERIFY	1
-#  include <openssl/evp.h>
-# else
+# include  <openssl/evp.h>
+#else
 #  define IMAGE_ENABLE_SIGN	0
-#  define IMAGE_ENABLE_VERIFY	0
+#  define IMAGE_ENABLE_VERIFY	1
 # endif
 #else
 # define IMAGE_ENABLE_SIGN	0
-# define IMAGE_ENABLE_VERIFY	CONFIG_IS_ENABLED(FIT_SIGNATURE)
+# define IMAGE_ENABLE_VERIFY	0
 #endif
 
 #ifdef USE_HOSTCC
@@ -1111,7 +1100,6 @@ struct image_sign_info {
 	int node_offset;		/* Offset of signature node */
 	const char *name;		/* Algorithm name */
 	struct checksum_algo *checksum;	/* Checksum algorithm information */
-	struct padding_algo *padding;	/* Padding algorithm information */
 	struct crypto_algo *crypto;	/* Crypto algorithm information */
 	const void *fdt_blob;		/* FDT containing public keys */
 	int required_keynode;		/* Node offset of key to use: -1=any */
@@ -1197,13 +1185,6 @@ struct crypto_algo {
 		      uint8_t *sig, uint sig_len);
 };
 
-struct padding_algo {
-	const char *name;
-	int (*verify)(struct image_sign_info *info,
-		      uint8_t *pad, int pad_len,
-		      const uint8_t *hash, int hash_len);
-};
-
 /**
  * image_get_checksum_algo() - Look up a checksum algorithm
  *
@@ -1219,14 +1200,6 @@ struct checksum_algo *image_get_checksum_algo(const char *full_name);
  * @return pointer to algorithm information, or NULL if not found
  */
 struct crypto_algo *image_get_crypto_algo(const char *full_name);
-
-/**
- * image_get_padding_algo() - Look up a padding algorithm
- *
- * @param name		Name of padding algorithm
- * @return pointer to algorithm information, or NULL if not found
- */
-struct padding_algo *image_get_padding_algo(const char *name);
 
 /**
  * fit_image_verify_required_sigs() - Verify signatures marked as 'required'
@@ -1316,7 +1289,6 @@ int android_image_get_second(const struct andr_img_hdr *hdr,
 			      ulong *second_data, ulong *second_len);
 ulong android_image_get_end(const struct andr_img_hdr *hdr);
 ulong android_image_get_kload(const struct andr_img_hdr *hdr);
-ulong android_image_get_kcomp(const struct andr_img_hdr *hdr);
 void android_print_contents(const struct andr_img_hdr *hdr);
 
 #endif /* CONFIG_ANDROID_BOOT_IMAGE */

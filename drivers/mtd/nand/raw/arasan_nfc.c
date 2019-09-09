@@ -90,8 +90,6 @@ struct arasan_nand_command_format {
 #define ARASAN_NAND_MEM_ADDR1_PAGE_SHIFT	16
 #define ARASAN_NAND_MEM_ADDR2_PAGE_MASK		0xFF
 #define ARASAN_NAND_MEM_ADDR2_CS_MASK		0xC0000000
-#define ARASAN_NAND_MEM_ADDR2_CS0_MASK         (0x3 << 30)
-#define ARASAN_NAND_MEM_ADDR2_CS1_MASK         (0x1 << 30)
 #define ARASAN_NAND_MEM_ADDR2_BCH_MASK		0xE000000
 #define ARASAN_NAND_MEM_ADDR2_BCH_SHIFT		25
 
@@ -263,16 +261,6 @@ static struct nand_chip nand_chip[CONFIG_SYS_MAX_NAND_DEVICE];
 
 static void arasan_nand_select_chip(struct mtd_info *mtd, int chip)
 {
-	u32 reg_val;
-
-	reg_val = readl(&arasan_nand_base->memadr_reg2);
-	if (chip == 0) {
-		reg_val &= ~ARASAN_NAND_MEM_ADDR2_CS0_MASK;
-		writel(reg_val, &arasan_nand_base->memadr_reg2);
-	} else if (chip == 1) {
-		reg_val |= ARASAN_NAND_MEM_ADDR2_CS1_MASK;
-		writel(reg_val, &arasan_nand_base->memadr_reg2);
-	}
 }
 
 static void arasan_nand_enable_ecc(void)
@@ -725,6 +713,9 @@ static int arasan_nand_send_wrcmd(struct arasan_nand_command_format *curr_cmd,
 	reg_val &= ~ARASAN_NAND_MEM_ADDR2_PAGE_MASK;
 	reg_val |= (page_addr >> ARASAN_NAND_MEM_ADDR1_PAGE_SHIFT);
 	writel(reg_val, &arasan_nand_base->memadr_reg2);
+	reg_val = readl(&arasan_nand_base->memadr_reg2);
+	reg_val &= ~ARASAN_NAND_MEM_ADDR2_CS_MASK;
+	writel(reg_val, &arasan_nand_base->memadr_reg2);
 
 	return 0;
 }
@@ -813,6 +804,9 @@ static int arasan_nand_erase(struct arasan_nand_command_format *curr_cmd,
 	reg_val &= ~ARASAN_NAND_MEM_ADDR2_PAGE_MASK;
 	reg_val |= (page_addr >> ARASAN_NAND_MEM_ADDR1_PAGE_SHIFT);
 	writel(reg_val, &arasan_nand_base->memadr_reg2);
+	reg_val = readl(&arasan_nand_base->memadr_reg2);
+	reg_val &= ~ARASAN_NAND_MEM_ADDR2_CS_MASK;
+	writel(reg_val, &arasan_nand_base->memadr_reg2);
 	writel(curr_cmd->pgm, &arasan_nand_base->pgm_reg);
 
 	while (!(readl(&arasan_nand_base->intsts_reg) &
@@ -864,6 +858,10 @@ static int arasan_nand_read_status(struct arasan_nand_command_format *curr_cmd,
 		     ARASAN_NAND_PKT_REG_PKT_SIZE_MASK);
 	reg_val |= (1 << ARASAN_NAND_PKT_REG_PKT_CNT_SHFT) | 1;
 	writel(reg_val, &arasan_nand_base->pkt_reg);
+
+	reg_val = readl(&arasan_nand_base->memadr_reg2);
+	reg_val &= ~ARASAN_NAND_MEM_ADDR2_CS_MASK;
+	writel(reg_val, &arasan_nand_base->memadr_reg2);
 
 	writel(curr_cmd->pgm, &arasan_nand_base->pgm_reg);
 	while (!(readl(&arasan_nand_base->intsts_reg) &
@@ -934,6 +932,9 @@ static int arasan_nand_send_rdcmd(struct arasan_nand_command_format *curr_cmd,
 	reg_val |= (page_addr >> ARASAN_NAND_MEM_ADDR1_PAGE_SHIFT);
 	writel(reg_val, &arasan_nand_base->memadr_reg2);
 
+	reg_val = readl(&arasan_nand_base->memadr_reg2);
+	reg_val &= ~ARASAN_NAND_MEM_ADDR2_CS_MASK;
+	writel(reg_val, &arasan_nand_base->memadr_reg2);
 	buf_index = 0;
 
 	return 0;
@@ -1200,10 +1201,6 @@ static int arasan_nand_init(struct nand_chip *nand_chip, int devnum)
 	mtd = nand_to_mtd(nand_chip);
 	nand_set_controller_data(nand_chip, nand);
 
-#ifdef CONFIG_SYS_NAND_NO_SUBPAGE_WRITE
-	nand_chip->options |= NAND_NO_SUBPAGE_WRITE;
-#endif
-
 	/* Set the driver entry points for MTD */
 	nand_chip->cmdfunc = arasan_nand_cmd_function;
 	nand_chip->select_chip = arasan_nand_select_chip;
@@ -1218,7 +1215,7 @@ static int arasan_nand_init(struct nand_chip *nand_chip, int devnum)
 	writel(0x0, &arasan_nand_base->pgm_reg);
 
 	/* first scan to find the device and get the page size */
-	if (nand_scan_ident(mtd, CONFIG_SYS_NAND_MAX_CHIPS, NULL)) {
+	if (nand_scan_ident(mtd, 1, NULL)) {
 		printf("%s: nand_scan_ident failed\n", __func__);
 		goto fail;
 	}

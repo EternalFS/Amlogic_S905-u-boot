@@ -26,7 +26,7 @@
 #if defined(CONFIG_CMD_SAVEENV) && defined(CONFIG_CMD_NAND) && \
 		!defined(CONFIG_SPL_BUILD)
 #define CMD_SAVEENV
-#elif defined(CONFIG_ENV_OFFSET_REDUND) && !defined(CONFIG_SPL_BUILD)
+#elif defined(CONFIG_ENV_OFFSET_REDUND)
 #error CONFIG_ENV_OFFSET_REDUND must have CONFIG_CMD_SAVEENV & CONFIG_CMD_NAND
 #endif
 
@@ -40,9 +40,11 @@
 #endif
 
 #if defined(ENV_IS_EMBEDDED)
-static env_t *env_ptr = &environment;
+env_t *env_ptr = &environment;
 #elif defined(CONFIG_NAND_ENV_DST)
-static env_t *env_ptr = (env_t *)CONFIG_NAND_ENV_DST;
+env_t *env_ptr = (env_t *)CONFIG_NAND_ENV_DST;
+#else /* ! ENV_IS_EMBEDDED */
+env_t *env_ptr;
 #endif /* ENV_IS_EMBEDDED */
 
 DECLARE_GLOBAL_DATA_PTR;

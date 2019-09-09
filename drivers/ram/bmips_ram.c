@@ -173,4 +173,5 @@ U_BOOT_DRIVER(bmips_ram) = {
 	.probe = bmips_ram_probe,
 	.priv_auto_alloc_size = sizeof(struct bmips_ram_priv),
 	.ops = &bmips_ram_ops,
+	.flags = DM_FLAG_PRE_RELOC,
 };

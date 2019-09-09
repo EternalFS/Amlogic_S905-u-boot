@@ -540,4 +540,5 @@ U_BOOT_DRIVER(serial_lpuart) = {
 	.platdata_auto_alloc_size = sizeof(struct lpuart_serial_platdata),
 	.probe = lpuart_serial_probe,
 	.ops	= &lpuart_serial_ops,
+	.flags = DM_FLAG_PRE_RELOC,
 };

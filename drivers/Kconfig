@@ -14,8 +14,6 @@ source "drivers/block/Kconfig"
 
 source "drivers/bootcount/Kconfig"
 
-source "drivers/cache/Kconfig"
-
 source "drivers/clk/Kconfig"
 
 source "drivers/cpu/Kconfig"
@@ -42,8 +40,6 @@ source "drivers/fpga/Kconfig"
 
 source "drivers/gpio/Kconfig"
 
-source "drivers/hwspinlock/Kconfig"
-
 source "drivers/i2c/Kconfig"
 
 source "drivers/input/Kconfig"
@@ -65,8 +61,6 @@ source "drivers/net/Kconfig"
 source "drivers/nvme/Kconfig"
 
 source "drivers/pci/Kconfig"
-
-source "drivers/pch/Kconfig"
 
 source "drivers/pcmcia/Kconfig"
 
@@ -100,8 +94,6 @@ source "drivers/smem/Kconfig"
 
 source "drivers/sound/Kconfig"
 
-source "drivers/soc/Kconfig"
-
 source "drivers/spi/Kconfig"
 
 source "drivers/spmi/Kconfig"
@@ -119,8 +111,6 @@ source "drivers/tpm/Kconfig"
 source "drivers/usb/Kconfig"
 
 source "drivers/video/Kconfig"
-
-source "drivers/virtio/Kconfig"
 
 source "drivers/w1/Kconfig"
 

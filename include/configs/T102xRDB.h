@@ -32,6 +32,7 @@
 #ifdef CONFIG_RAMBOOT_PBL
 #define CONFIG_SYS_FSL_PBL_PBI board/freescale/t102xrdb/t1024_pbi.cfg
 #define CONFIG_SPL_FLUSH_IMAGE
+#define CONFIG_SPL_TEXT_BASE		0xFFFD8000
 #define CONFIG_SPL_PAD_TO		0x40000
 #define CONFIG_SPL_MAX_SIZE		0x28000
 #define RESET_VECTOR_OFFSET		0x27FFC
@@ -143,6 +144,10 @@
 #endif
 
 #if defined(CONFIG_SPIFLASH)
+#define CONFIG_ENV_SPI_BUS		0
+#define CONFIG_ENV_SPI_CS		0
+#define CONFIG_ENV_SPI_MAX_HZ		10000000
+#define CONFIG_ENV_SPI_MODE		0
 #define CONFIG_ENV_SIZE			0x2000		/* 8KB */
 #define CONFIG_ENV_OFFSET		0x100000	/* 1MB */
 #if defined(CONFIG_TARGET_T1024RDB)
@@ -231,6 +236,7 @@ unsigned long get_board_ddr_clk(void);
 #define CONFIG_SYS_SDRAM_BASE		CONFIG_SYS_DDR_SDRAM_BASE
 #define CONFIG_DIMM_SLOTS_PER_CTLR	1
 #define CONFIG_CHIP_SELECTS_PER_CTRL	(4 * CONFIG_DIMM_SLOTS_PER_CTLR)
+#define CONFIG_FSL_DDR_INTERACTIVE
 #if defined(CONFIG_TARGET_T1024RDB)
 #define CONFIG_DDR_SPD
 #define CONFIG_SYS_SPD_BUS_NUM	0
@@ -492,6 +498,9 @@ unsigned long get_board_ddr_clk(void);
 /*
  * eSPI - Enhanced SPI
  */
+#define CONFIG_SPI_FLASH_BAR
+#define CONFIG_SF_DEFAULT_SPEED	10000000
+#define CONFIG_SF_DEFAULT_MODE	0
 
 /*
  * General PCIe
@@ -649,12 +658,16 @@ unsigned long get_board_ddr_clk(void);
 
 #define CONFIG_SYS_DPAA_FMAN
 
+#ifdef CONFIG_TARGET_T1024RDB
+#define CONFIG_QE
+#endif
 /* Default address of microcode for the Linux FMan driver */
 #if defined(CONFIG_SPIFLASH)
 /*
  * env is stored at 0x100000, sector size is 0x10000, ucode is stored after
  * env, so we got 0x110000.
  */
+#define CONFIG_SYS_QE_FW_IN_SPIFLASH
 #define CONFIG_SYS_FMAN_FW_ADDR	0x110000
 #define CONFIG_SYS_QE_FW_ADDR	0x130000
 #elif defined(CONFIG_SDCARD)
@@ -663,9 +676,11 @@ unsigned long get_board_ddr_clk(void);
  * about 1MB (2048 blocks), Env is stored after the image, and the env size is
  * 0x2000 (16 blocks), 8 + 2048 + 16 = 2072, enlarge it to 2080(0x820).
  */
+#define CONFIG_SYS_QE_FMAN_FW_IN_MMC
 #define CONFIG_SYS_FMAN_FW_ADDR		(512 * 0x820)
 #define CONFIG_SYS_QE_FW_ADDR		(512 * 0x920)
 #elif defined(CONFIG_NAND)
+#define CONFIG_SYS_QE_FMAN_FW_IN_NAND
 #if defined(CONFIG_TARGET_T1024RDB)
 #define CONFIG_SYS_FMAN_FW_ADDR		(3 * CONFIG_SYS_NAND_BLOCK_SIZE)
 #define CONFIG_SYS_QE_FW_ADDR		(4 * CONFIG_SYS_NAND_BLOCK_SIZE)
@@ -681,8 +696,10 @@ unsigned long get_board_ddr_clk(void);
  * slave SRIO or PCIE outbound window->master inbound window->
  * master LAW->the ucode address in master's memory space.
  */
+#define CONFIG_SYS_QE_FMAN_FW_IN_REMOTE
 #define CONFIG_SYS_FMAN_FW_ADDR		0xFFE00000
 #else
+#define CONFIG_SYS_QE_FMAN_FW_IN_NOR
 #define CONFIG_SYS_FMAN_FW_ADDR		0xEFF00000
 #define CONFIG_SYS_QE_FW_ADDR		0xEFE00000
 #endif
@@ -691,6 +708,7 @@ unsigned long get_board_ddr_clk(void);
 #endif /* CONFIG_NOBQFMAN */
 
 #ifdef CONFIG_SYS_DPAA_FMAN
+#define CONFIG_FMAN_ENET
 #define CONFIG_PHY_REALTEK
 #if defined(CONFIG_TARGET_T1024RDB)
 #define RGMII_PHY1_ADDR		0x2

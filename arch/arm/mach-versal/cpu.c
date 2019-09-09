@@ -7,10 +7,6 @@
 #include <common.h>
 #include <asm/armv8/mmu.h>
 #include <asm/io.h>
-#include <asm/arch/hardware.h>
-#include <asm/arch/sys_proto.h>
-
-DECLARE_GLOBAL_DATA_PTR;
 
 static struct mm_region versal_mem_map[] = {
 	{
@@ -71,17 +67,6 @@ u64 get_page_table_size(void)
 {
 	return 0x14000;
 }
-
-#if defined(CONFIG_SYS_MEM_RSVD_FOR_MMU)
-int reserve_mmu(void)
-{
-	tcm_init(TCM_LOCK);
-	gd->arch.tlb_size = PGTABLE_SIZE;
-	gd->arch.tlb_addr = VERSAL_TCM_BASE_ADDR;
-
-	return 0;
-}
-#endif
 
 #if defined(CONFIG_OF_BOARD)
 void *board_fdt_blob_setup(void)

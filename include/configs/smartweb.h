@@ -112,6 +112,13 @@
 	"root=/dev/nfs ip=dhcp nfsroot=${serverip}:/srv/nfs/rootfs; "	\
 	"dhcp"
 
+/* Enable the watchdog */
+#define CONFIG_AT91SAM9_WATCHDOG
+#if !defined(CONFIG_SPL_BUILD)
+#define CONFIG_HW_WATCHDOG
+#endif
+#define CONFIG_AT91_HW_WDT_TIMEOUT	15
+
 #if !defined(CONFIG_SPL_BUILD)
 /* USB configuration */
 #define CONFIG_USB_ATMEL
@@ -174,6 +181,7 @@
 #endif
 
 /* Defines for SPL */
+#define CONFIG_SPL_TEXT_BASE		0x0
 #define CONFIG_SPL_MAX_SIZE		(SZ_4K)
 
 #define CONFIG_SPL_BSS_START_ADDR	CONFIG_SYS_SDRAM_BASE
@@ -216,7 +224,8 @@
 #define CONFIG_SYS_MCKR_CSS		(0x02 | CONFIG_SYS_MCKR)
 #define CONFIG_SYS_AT91_PLLB		0x10483f0e
 
-#define CONFIG_SPL_PAD_TO		CONFIG_SYS_NAND_U_BOOT_OFFS
-#define CONFIG_SYS_SPL_LEN		CONFIG_SPL_PAD_TO
-
+#if defined(CONFIG_SPL_BUILD)
+#define CONFIG_SYS_ICACHE_OFF
+#define CONFIG_SYS_DCACHE_OFF
+#endif
 #endif /* __CONFIG_H */

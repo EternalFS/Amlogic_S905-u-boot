@@ -25,27 +25,19 @@
 #include <fsl_esdhc.h>
 #endif
 
+#if defined(CONFIG_DISPLAY_CPUINFO) && !defined(CONFIG_SPL_BUILD)
 static u32 reset_cause = -1;
 
-u32 get_imx_reset_cause(void)
-{
-	struct src *src_regs = (struct src *)SRC_BASE_ADDR;
-
-	if (reset_cause == -1) {
-		reset_cause = readl(&src_regs->srsr);
-/* preserve the value for U-Boot proper */
-#if !defined(CONFIG_SPL_BUILD)
-		writel(reset_cause, &src_regs->srsr);
-#endif
-	}
-
-	return reset_cause;
-}
-
-#if defined(CONFIG_DISPLAY_CPUINFO) && !defined(CONFIG_SPL_BUILD)
 static char *get_reset_cause(void)
 {
-	switch (get_imx_reset_cause()) {
+	u32 cause;
+	struct src *src_regs = (struct src *)SRC_BASE_ADDR;
+
+	cause = readl(&src_regs->srsr);
+	writel(cause, &src_regs->srsr);
+	reset_cause = cause;
+
+	switch (cause) {
 	case 0x00001:
 	case 0x00011:
 		return "POR";
@@ -70,7 +62,7 @@ static char *get_reset_cause(void)
 		return "WDOG4";
 	case 0x00200:
 		return "TEMPSENSE";
-#elif defined(CONFIG_IMX8M)
+#elif defined(CONFIG_MX8M)
 	case 0x00100:
 		return "WDOG2";
 	case 0x00200:
@@ -84,6 +76,11 @@ static char *get_reset_cause(void)
 	default:
 		return "unknown reset";
 	}
+}
+
+u32 get_imx_reset_cause(void)
+{
+	return reset_cause;
 }
 #endif
 
@@ -145,8 +142,8 @@ unsigned imx_ddr_size(void)
 const char *get_imx_type(u32 imxtype)
 {
 	switch (imxtype) {
-	case MXC_CPU_IMX8MQ:
-		return "8MQ";	/* Quad-core version of the imx8m */
+	case MXC_CPU_MX8MQ:
+		return "8MQ";	/* Quad-core version of the mx8m */
 	case MXC_CPU_MX7S:
 		return "7S";	/* Single-core version of the mx7 */
 	case MXC_CPU_MX7D:
@@ -269,7 +266,7 @@ int cpu_mmc_init(bd_t *bis)
 }
 #endif
 
-#if !(defined(CONFIG_MX7) || defined(CONFIG_IMX8M))
+#if !(defined(CONFIG_MX7) || defined(CONFIG_MX8M))
 u32 get_ahb_clk(void)
 {
 	struct mxc_ccm_reg *imx_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
@@ -303,7 +300,7 @@ void arch_preboot_os(void)
 #endif
 }
 
-#ifndef CONFIG_IMX8M
+#ifndef CONFIG_MX8M
 void set_chipselect_size(int const cs_size)
 {
 	unsigned int reg;
@@ -336,7 +333,7 @@ void set_chipselect_size(int const cs_size)
 }
 #endif
 
-#if defined(CONFIG_MX7) || defined(CONFIG_IMX8M)
+#if defined(CONFIG_MX7) || defined(CONFIG_MX8M)
 /*
  * OCOTP_TESTER3[9:8] (see Fusemap Description Table offset 0x440)
  * defines a 2-bit SPEED_GRADING
@@ -412,7 +409,7 @@ u32 get_cpu_temp_grade(int *minc, int *maxc)
 }
 #endif
 
-#if defined(CONFIG_MX7) || defined(CONFIG_IMX8M)
+#if defined(CONFIG_MX7) || defined(CONFIG_MX8M)
 enum boot_device get_boot_device(void)
 {
 	struct bootrom_sw_info **p =
@@ -441,7 +438,7 @@ enum boot_device get_boot_device(void)
 	case BOOT_TYPE_SPINOR:
 		boot_dev = SPI_NOR_BOOT;
 		break;
-#ifdef CONFIG_IMX8M
+#ifdef CONFIG_MX8M
 	case BOOT_TYPE_USB:
 		boot_dev = USB_BOOT;
 		break;

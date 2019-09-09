@@ -233,7 +233,7 @@ static int zynqmp_load(xilinx_desc *desc, const void *buf, size_t bsize,
 				 (u32)bsize, 0, ret_payload);
 
 	if (ret)
-		puts("PL FPGA LOAD fail\n");
+		debug("PL FPGA LOAD fail\n");
 
 	return ret;
 }

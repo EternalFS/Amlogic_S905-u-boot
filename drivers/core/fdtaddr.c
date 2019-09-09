@@ -74,16 +74,13 @@ fdt_addr_t devfdt_get_addr_index(struct udevice *dev, int index)
 		}
 	}
 
-#if defined(CONFIG_TRANSLATION_OFFSET)
 	/*
 	 * Some platforms need a special address translation. Those
 	 * platforms (e.g. mvebu in SPL) can configure a translation
-	 * offset by setting this value in the GD and enaling this
-	 * feature via CONFIG_TRANSLATION_OFFSET. This value will
-	 * get added to all addresses returned by devfdt_get_addr().
+	 * offset in the DM by calling dm_set_translation_offset() that
+	 * will get added to all addresses returned by devfdt_get_addr().
 	 */
-	addr += gd->translation_offset;
-#endif
+	addr += dm_get_translation_offset();
 
 	return addr;
 #else
@@ -142,16 +139,6 @@ void *devfdt_get_addr_ptr(struct udevice *dev)
 void *devfdt_remap_addr_index(struct udevice *dev, int index)
 {
 	fdt_addr_t addr = devfdt_get_addr_index(dev, index);
-
-	if (addr == FDT_ADDR_T_NONE)
-		return NULL;
-
-	return map_physmem(addr, 0, MAP_NOCACHE);
-}
-
-void *devfdt_remap_addr_name(struct udevice *dev, const char *name)
-{
-	fdt_addr_t addr = devfdt_get_addr_name(dev, name);
 
 	if (addr == FDT_ADDR_T_NONE)
 		return NULL;

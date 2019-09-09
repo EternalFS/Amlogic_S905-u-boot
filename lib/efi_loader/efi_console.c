@@ -62,21 +62,6 @@ static struct simple_text_output_mode efi_con_mode = {
 	.cursor_visible = 1,
 };
 
-static int term_get_char(s32 *c)
-{
-	u64 timeout;
-
-	/* Wait up to 100 ms for a character */
-	timeout = timer_get_us() + 100000;
-
-	while (!tstc())
-		if (timer_get_us() > timeout)
-			return 1;
-
-	*c = getc();
-	return 0;
-}
-
 /*
  * Receive and parse a reply from the terminal.
  *
@@ -87,36 +72,34 @@ static int term_get_char(s32 *c)
  */
 static int term_read_reply(int *n, int num, char end_char)
 {
-	s32 c;
+	char c;
 	int i = 0;
 
-	if (term_get_char(&c) || c != cESC)
+	c = getc();
+	if (c != cESC)
 		return -1;
-
-	if (term_get_char(&c) || c != '[')
+	c = getc();
+	if (c != '[')
 		return -1;
 
 	n[0] = 0;
 	while (1) {
-		if (!term_get_char(&c)) {
-			if (c == ';') {
-				i++;
-				if (i >= num)
-					return -1;
-				n[i] = 0;
-				continue;
-			} else if (c == end_char) {
-				break;
-			} else if (c > '9' || c < '0') {
+		c = getc();
+		if (c == ';') {
+			i++;
+			if (i >= num)
 				return -1;
-			}
-
-			/* Read one more decimal position */
-			n[i] *= 10;
-			n[i] += c - '0';
-		} else {
+			n[i] = 0;
+			continue;
+		} else if (c == end_char) {
+			break;
+		} else if (c > '9' || c < '0') {
 			return -1;
 		}
+
+		/* Read one more decimal position */
+		n[i] *= 10;
+		n[i] += c - '0';
 	}
 	if (i != num - 1)
 		return -1;
@@ -135,11 +118,6 @@ static efi_status_t EFIAPI efi_cout_output_string(
 	efi_status_t ret = EFI_SUCCESS;
 
 	EFI_ENTRY("%p, %p", this, string);
-
-	if (!this || !string) {
-		ret = EFI_INVALID_PARAMETER;
-		goto out;
-	}
 
 	buf = malloc(utf16_utf8_strlen(string) + 1);
 	if (!buf) {
@@ -218,6 +196,7 @@ static int query_console_serial(int *rows, int *cols)
 {
 	int ret = 0;
 	int n[2];
+	u64 timeout;
 
 	/* Empty input buffer */
 	while (tstc())
@@ -226,7 +205,7 @@ static int query_console_serial(int *rows, int *cols)
 	/*
 	 * Not all terminals understand CSI [18t for querying the console size.
 	 * We should adhere to escape sequences documented in the console_codes
-	 * man page and the ECMA-48 standard.
+	 * manpage and the ECMA-48 standard.
 	 *
 	 * So here we follow a different approach. We position the cursor to the
 	 * bottom right and query its position. Before leaving the function we
@@ -236,6 +215,14 @@ static int query_console_serial(int *rows, int *cols)
 	       ESC "[r"		/* Set scrolling region to full window */
 	       ESC "[999;999H"	/* Move to bottom right corner */
 	       ESC "[6n");	/* Query cursor position */
+
+	/* Allow up to one second for a response */
+	timeout = timer_get_us() + 1000000;
+	while (!tstc())
+		if (timer_get_us() > timeout) {
+			ret = -1;
+			goto out;
+		}
 
 	/* Read {rows,cols} */
 	if (term_read_reply(n, 2, 'R')) {
@@ -493,7 +480,7 @@ void set_shift_mask(int mod, struct efi_key_state *key_state)
  *
  * This gets called when we have already parsed CSI.
  *
- * @modifiers:  bit mask (shift, alt, ctrl)
+ * @modifiers:  bitmask (shift, alt, ctrl)
  * @return:	the unmodified code
  */
 static int analyze_modifiers(struct efi_key_state *key_state)
@@ -802,26 +789,9 @@ static efi_status_t EFIAPI efi_cin_read_key_stroke_ex(
 		ret = EFI_NOT_READY;
 		goto out;
 	}
-	/*
-	 * CTRL+A - CTRL+Z have to be signaled as a - z.
-	 * SHIFT+CTRL+A - SHIFT+CTRL+Z have to be signaled as A - Z.
-	 */
-	switch (next_key.key.unicode_char) {
-	case 0x01 ... 0x07:
-	case 0x0b ... 0x0c:
-	case 0x0e ... 0x1a:
-		if (!(next_key.key_state.key_toggle_state &
-		      EFI_CAPS_LOCK_ACTIVE) ^
-		    !(next_key.key_state.key_shift_state &
-		      (EFI_LEFT_SHIFT_PRESSED | EFI_RIGHT_SHIFT_PRESSED)))
-			next_key.key.unicode_char += 0x40;
-		else
-			next_key.key.unicode_char += 0x60;
-	}
 	*key_data = next_key;
 	key_available = false;
 	efi_con_in.wait_for_key->is_signaled = false;
-
 out:
 	return EFI_EXIT(ret);
 }
@@ -830,7 +800,7 @@ out:
  * efi_cin_set_state() - set toggle key state
  *
  * @this:		instance of the EFI_SIMPLE_TEXT_INPUT_PROTOCOL
- * @key_toggle_state:	pointer to key toggle state
+ * @key_toggle_state:	key toggle state
  * Return:		status code
  *
  * This function implements the SetState service of the
@@ -841,9 +811,9 @@ out:
  */
 static efi_status_t EFIAPI efi_cin_set_state(
 		struct efi_simple_text_input_ex_protocol *this,
-		u8 *key_toggle_state)
+		u8 key_toggle_state)
 {
-	EFI_ENTRY("%p, %p", this, key_toggle_state);
+	EFI_ENTRY("%p, %u", this, key_toggle_state);
 	/*
 	 * U-Boot supports multiple console input sources like serial and
 	 * net console for which a key toggle state cannot be set at all.
@@ -1081,34 +1051,34 @@ static void EFIAPI efi_key_notify(struct efi_event *event, void *context)
 efi_status_t efi_console_register(void)
 {
 	efi_status_t r;
-	efi_handle_t console_output_handle;
-	efi_handle_t console_input_handle;
+	struct efi_object *efi_console_output_obj;
+	struct efi_object *efi_console_input_obj;
 
 	/* Set up mode information */
 	query_console_size();
 
 	/* Create handles */
-	r = efi_create_handle(&console_output_handle);
+	r = efi_create_handle((efi_handle_t *)&efi_console_output_obj);
 	if (r != EFI_SUCCESS)
 		goto out_of_memory;
 
-	r = efi_add_protocol(console_output_handle,
+	r = efi_add_protocol(efi_console_output_obj->handle,
 			     &efi_guid_text_output_protocol, &efi_con_out);
 	if (r != EFI_SUCCESS)
 		goto out_of_memory;
-	systab.con_out_handle = console_output_handle;
-	systab.stderr_handle = console_output_handle;
+	systab.con_out_handle = efi_console_output_obj->handle;
+	systab.stderr_handle = efi_console_output_obj->handle;
 
-	r = efi_create_handle(&console_input_handle);
+	r = efi_create_handle((efi_handle_t *)&efi_console_input_obj);
 	if (r != EFI_SUCCESS)
 		goto out_of_memory;
 
-	r = efi_add_protocol(console_input_handle,
+	r = efi_add_protocol(efi_console_input_obj->handle,
 			     &efi_guid_text_input_protocol, &efi_con_in);
 	if (r != EFI_SUCCESS)
 		goto out_of_memory;
-	systab.con_in_handle = console_input_handle;
-	r = efi_add_protocol(console_input_handle,
+	systab.con_in_handle = efi_console_input_obj->handle;
+	r = efi_add_protocol(efi_console_input_obj->handle,
 			     &efi_guid_text_input_ex_protocol, &efi_con_in_ex);
 	if (r != EFI_SUCCESS)
 		goto out_of_memory;

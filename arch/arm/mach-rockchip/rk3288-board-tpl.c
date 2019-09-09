@@ -10,17 +10,28 @@
 #include <spl.h>
 #include <version.h>
 #include <asm/io.h>
-#include <asm/arch-rockchip/bootrom.h>
-#include <asm/arch-rockchip/clock.h>
-#include <asm/arch-rockchip/sys_proto.h>
-#include <asm/arch-rockchip/timer.h>
+#include <asm/arch/bootrom.h>
+#include <asm/arch/clock.h>
+#include <asm/arch/grf_rk3288.h>
+#include <asm/arch/periph.h>
+#include <asm/arch/pmu_rk3288.h>
+#include <asm/arch/sys_proto.h>
+#include <asm/arch/timer.h>
 
+#define GRF_BASE		0xff770000
 void board_init_f(ulong dummy)
 {
 	struct udevice *dev;
 	int ret;
 
-#ifdef CONFIG_DEBUG_UART
+	/* Example code showing how to enable the debug UART on RK3288 */
+	/* Enable early UART on the RK3288 */
+	struct rk3288_grf * const grf = (void *)GRF_BASE;
+
+	rk_clrsetreg(&grf->gpio7ch_iomux, GPIO7C7_MASK << GPIO7C7_SHIFT |
+		     GPIO7C6_MASK << GPIO7C6_SHIFT,
+		     GPIO7C7_UART2DBG_SOUT << GPIO7C7_SHIFT |
+		     GPIO7C6_UART2DBG_SIN << GPIO7C6_SHIFT);
 	/*
 	 * Debug UART can be used from here if required:
 	 *
@@ -30,7 +41,7 @@ void board_init_f(ulong dummy)
 	 * printascii("string");
 	 */
 	debug_uart_init();
-#endif
+
 	ret = spl_early_init();
 	if (ret) {
 		debug("spl_early_init() failed: %d\n", ret);

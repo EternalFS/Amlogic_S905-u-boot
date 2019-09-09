@@ -7,7 +7,7 @@
 #include <dm.h>
 #include <ram.h>
 #include <asm/io.h>
-#include <asm/arch-rockchip/sdram_common.h>
+#include <asm/arch/sdram_common.h>
 #include <dm/uclass-internal.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -47,24 +47,6 @@ size_t rockchip_sdram_size(phys_addr_t reg)
 		debug("rank %d col %d bk %d cs0_row %d bw %d row_3_4 %d\n",
 		      rank, col, bk, cs0_row, bw, row_3_4);
 	}
-
-	/*
-	 * This is workaround for issue we can't get correct size for 4GB ram
-	 * in 32bit system and available before we really need ram space
-	 * out of 4GB, eg.enable ARM LAPE(rk3288 supports 8GB ram).
-	 * The size of 4GB is '0x1 00000000', and this value will be truncated
-	 * to 0 in 32bit system, and system can not get correct ram size.
-	 * Rockchip SoCs reserve a blob of space for peripheral near 4GB,
-	 * and we are now setting SDRAM_MAX_SIZE as max available space for
-	 * ram in 4GB, so we can use this directly to workaround the issue.
-	 * TODO:
-	 *   1. update correct value for SDRAM_MAX_SIZE as what dram
-	 *   controller sees.
-	 *   2. update board_get_usable_ram_top() and dram_init_banksize()
-	 *   to reserve memory for peripheral space after previous update.
-	 */
-	if (size_mb > (SDRAM_MAX_SIZE >> 20))
-		size_mb = (SDRAM_MAX_SIZE >> 20);
 
 	return (size_t)size_mb << 20;
 }

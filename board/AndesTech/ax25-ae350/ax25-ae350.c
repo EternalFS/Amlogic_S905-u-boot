@@ -14,7 +14,6 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-extern phys_addr_t prior_stage_fdt_address;
 /*
  * Miscellaneous platform dependent initializations
  */
@@ -67,6 +66,10 @@ ulong board_flash_get_legacy(ulong base, int banknum, flash_info_t *info)
 
 void *board_fdt_blob_setup(void)
 {
+	void **ptr = (void *)CONFIG_SYS_SDRAM_BASE;
+	if (fdt_magic(*ptr) == FDT_MAGIC)
+			return (void *)*ptr;
+
 	return (void *)CONFIG_SYS_FDT_BASE;
 }
 

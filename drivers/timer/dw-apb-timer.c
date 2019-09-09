@@ -17,6 +17,8 @@
 #define DW_APB_CURR_VAL		0x4
 #define DW_APB_CTRL		0x8
 
+DECLARE_GLOBAL_DATA_PTR;
+
 struct dw_apb_timer_priv {
 	fdt_addr_t	regs;
 };
@@ -30,7 +32,7 @@ static int dw_apb_timer_get_count(struct udevice *dev, u64 *count)
 	 * requires the count to be incrementing. Invert the
 	 * result.
 	 */
-	*count = timer_conv_64(~readl(priv->regs + DW_APB_CURR_VAL));
+	*count = ~readl(priv->regs + DW_APB_CURR_VAL);
 
 	return 0;
 }
@@ -81,6 +83,7 @@ U_BOOT_DRIVER(dw_apb_timer) = {
 	.id		= UCLASS_TIMER,
 	.ops		= &dw_apb_timer_ops,
 	.probe		= dw_apb_timer_probe,
+	.flags		= DM_FLAG_PRE_RELOC,
 	.of_match	= dw_apb_timer_ids,
 	.ofdata_to_platdata = dw_apb_timer_ofdata_to_platdata,
 	.priv_auto_alloc_size = sizeof(struct dw_apb_timer_priv),

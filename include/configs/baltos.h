@@ -34,8 +34,15 @@
 /* FIT support */
 #define CONFIG_SYS_BOOTM_LEN         SZ_64M
 
-#ifdef CONFIG_NAND
+/* UBI Support */
 
+/* I2C configuration */
+
+#ifdef CONFIG_NAND
+#define CONFIG_SYS_NAND_U_BOOT_OFFS	0x00080000
+#ifdef CONFIG_SPL_OS_BOOT
+#define CONFIG_SYS_NAND_SPL_KERNEL_OFFS 0x00200000 /* kernel offset */
+#endif
 #define NANDARGS \
 	"mtdids=" CONFIG_MTDIDS_DEFAULT "\0" \
 	"mtdparts=" CONFIG_MTDPARTS_DEFAULT "\0" \
@@ -251,10 +258,15 @@
  * add mass storage support and for gadget we add both RNDIS ethernet
  * and DFU.
  */
+#define CONFIG_USB_MUSB_DISABLE_BULK_COMBINE_SPLIT
 #define CONFIG_AM335X_USB0
 #define CONFIG_AM335X_USB0_MODE	MUSB_HOST
 #define CONFIG_AM335X_USB1
 #define CONFIG_AM335X_USB1_MODE MUSB_OTG
+
+/* Network. */
+#define CONFIG_PHY_SMSC
+#define CONFIG_PHY_ATHEROS
 
 /* NAND support */
 #ifdef CONFIG_NAND

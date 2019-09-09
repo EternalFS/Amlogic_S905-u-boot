@@ -35,20 +35,15 @@ struct pass_over_info_t *get_pass_over_info(void)
 
 int arch_cpu_init(void)
 {
-#ifdef CONFIG_SPL_BUILD
-	struct pass_over_info_t *pass_over;
+	struct pass_over_info_t *pass_over = get_pass_over_info();
 
-	if (is_soc_rev(CHIP_REV_A)) {
-		pass_over = get_pass_over_info();
-		if (pass_over && pass_over->g_ap_mu == 0) {
-			/*
-			 * When ap_mu is 0, means the U-Boot booted
-			 * from first container
-			 */
-			sc_misc_boot_status(-1, SC_MISC_BOOT_STATUS_SUCCESS);
-		}
+	if (pass_over && pass_over->g_ap_mu == 0) {
+		/*
+		 * When ap_mu is 0, means the U-Boot booted
+		 * from first container
+		 */
+		sc_misc_boot_status(-1, SC_MISC_BOOT_STATUS_SUCCESS);
 	}
-#endif
 
 	return 0;
 }
@@ -446,7 +441,7 @@ void enable_caches(void)
 	dcache_enable();
 }
 
-#if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
+#ifndef CONFIG_SYS_DCACHE_OFF
 u64 get_page_table_size(void)
 {
 	u64 one_pt = MAX_PTE_ENTRIES * sizeof(u64);
@@ -512,6 +507,15 @@ err:
 	printf("%s: fuse %d, err: %d\n", __func__, word[i], ret);
 }
 
+#if CONFIG_IS_ENABLED(CPU)
+struct cpu_imx_platdata {
+	const char *name;
+	const char *rev;
+	const char *type;
+	u32 cpurev;
+	u32 freq_mhz;
+};
+
 u32 get_cpu_rev(void)
 {
 	u32 id = 0, rev = 0;
@@ -527,23 +531,12 @@ u32 get_cpu_rev(void)
 	return (id << 12) | rev;
 }
 
-#if CONFIG_IS_ENABLED(CPU)
-struct cpu_imx_platdata {
-	const char *name;
-	const char *rev;
-	const char *type;
-	u32 cpurev;
-	u32 freq_mhz;
-};
-
 const char *get_imx8_type(u32 imxtype)
 {
 	switch (imxtype) {
 	case MXC_CPU_IMX8QXP:
 	case MXC_CPU_IMX8QXP_A0:
 		return "QXP";
-	case MXC_CPU_IMX8QM:
-		return "QM";
 	default:
 		return "??";
 	}
@@ -580,7 +573,7 @@ int cpu_imx_get_desc(struct udevice *dev, char *buf, int size)
 	if (size < 100)
 		return -ENOSPC;
 
-	snprintf(buf, size, "NXP i.MX8%s Rev%s %s at %u MHz\n",
+	snprintf(buf, size, "CPU:   Freescale i.MX8%s Rev%s %s at %u MHz\n",
 		 plat->type, plat->rev, plat->name, plat->freq_mhz);
 
 	return 0;
@@ -615,36 +608,29 @@ static const struct cpu_ops cpu_imx8_ops = {
 
 static const struct udevice_id cpu_imx8_ids[] = {
 	{ .compatible = "arm,cortex-a35" },
-	{ .compatible = "arm,cortex-a53" },
 	{ }
 };
-
-static ulong imx8_get_cpu_rate(void)
-{
-	ulong rate;
-	int ret;
-
-	ret = sc_pm_get_clock_rate(-1, SC_R_A35, SC_PM_CLK_CPU,
-				   (sc_pm_clock_rate_t *)&rate);
-	if (ret) {
-		printf("Could not read CPU frequency: %d\n", ret);
-		return 0;
-	}
-
-	return rate;
-}
 
 static int imx8_cpu_probe(struct udevice *dev)
 {
 	struct cpu_imx_platdata *plat = dev_get_platdata(dev);
+	struct clk cpu_clk;
 	u32 cpurev;
+	int ret;
 
 	cpurev = get_cpu_rev();
 	plat->cpurev = cpurev;
 	plat->name = get_core_name();
 	plat->rev = get_imx8_rev(cpurev & 0xFFF);
 	plat->type = get_imx8_type((cpurev & 0xFF000) >> 12);
-	plat->freq_mhz = imx8_get_cpu_rate() / 1000000;
+
+	ret = clk_get_by_index(dev, 0, &cpu_clk);
+	if (ret) {
+		debug("%s: Failed to get CPU clk: %d\n", __func__, ret);
+		return 0;
+	}
+
+	plat->freq_mhz = clk_get_rate(&cpu_clk) / 1000000;
 	return 0;
 }
 

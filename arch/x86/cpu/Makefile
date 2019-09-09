@@ -9,22 +9,9 @@
 ifeq ($(CONFIG_$(SPL_)X86_64),y)
 extra-y	= start64.o
 else
-ifeq ($(CONFIG_$(SPL_TPL_)X86_16BIT_INIT),y)
 extra-y	= start.o
-else
-ifndef CONFIG_SPL
-extra-y	= start.o
-else
-ifdef CONFIG_SPL_BUILD
-extra-y	= start_from_tpl.o
-else
-extra-y	= start_from_spl.o
 endif
-endif
-endif
-endif
-
-extra-$(CONFIG_$(SPL_TPL_)X86_16BIT_INIT) += resetvec.o start16.o
+extra-$(CONFIG_$(SPL_)X86_16BIT_INIT) += resetvec.o start16.o
 
 obj-y	+= cpu.o cpu_x86.o
 
@@ -48,7 +35,7 @@ obj-$(CONFIG_NORTHBRIDGE_INTEL_IVYBRIDGE) += ivybridge/
 obj-$(CONFIG_INTEL_QUARK) += quark/
 obj-$(CONFIG_INTEL_QUEENSBAY) += queensbay/
 obj-$(CONFIG_INTEL_TANGIER) += tangier/
-obj-$(CONFIG_APIC) += lapic.o ioapic.o
+obj-y += lapic.o ioapic.o
 obj-y += irq.o
 ifndef CONFIG_$(SPL_)X86_64
 obj-$(CONFIG_SMP) += mp_init.o

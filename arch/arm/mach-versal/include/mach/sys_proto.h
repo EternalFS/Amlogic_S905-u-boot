@@ -3,9 +3,4 @@
  * Copyright 2016 - 2018 Xilinx, Inc.
  */
 
-enum {
-	TCM_LOCK,
-	TCM_SPLIT,
-};
-
-void tcm_init(u8 mode);
+/* Empty file - for compilation */

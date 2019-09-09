@@ -9,8 +9,8 @@
  * Copyright (c) 2009, Intel Corporation.
  */
 
-#include <common.h>
 #include <asm-generic/gpio.h>
+#include <common.h>
 #include <clk.h>
 #include <dm.h>
 #include <errno.h>
@@ -21,6 +21,8 @@
 #include <linux/compat.h>
 #include <linux/iopoll.h>
 #include <asm/io.h>
+
+DECLARE_GLOBAL_DATA_PTR;
 
 /* Register offsets */
 #define DW_SPI_CTRL0			0x00
@@ -153,12 +155,14 @@ static int request_gpio_cs(struct udevice *bus)
 static int dw_spi_ofdata_to_platdata(struct udevice *bus)
 {
 	struct dw_spi_platdata *plat = bus->platdata;
+	const void *blob = gd->fdt_blob;
+	int node = dev_of_offset(bus);
 
 	plat->regs = (struct dw_spi *)devfdt_get_addr(bus);
 
 	/* Use 500KHz as a suitable default */
-	plat->frequency = dev_read_u32_default(bus, "spi-max-frequency",
-					       500000);
+	plat->frequency = fdtdec_get_int(blob, node, "spi-max-frequency",
+					500000);
 	debug("%s: regs=%p max-frequency=%d\n", __func__, plat->regs,
 	      plat->frequency);
 
@@ -365,13 +369,7 @@ static int poll_transfer(struct dw_spi_priv *priv)
 	return 0;
 }
 
-/*
- * We define external_cs_manage function as 'weak' as some targets
- * (like MSCC Ocelot) don't control the external CS pin using a GPIO
- * controller. These SoCs use specific registers to control by
- * software the SPI pins (and especially the CS).
- */
-__weak void external_cs_manage(struct udevice *dev, bool on)
+static void external_cs_manage(struct udevice *dev, bool on)
 {
 #if defined(CONFIG_DM_GPIO) && !defined(CONFIG_SPL_BUILD)
 	struct dw_spi_priv *priv = dev_get_priv(dev->parent);

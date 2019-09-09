@@ -115,30 +115,18 @@ int video_clear(struct udevice *dev)
 	return 0;
 }
 
-void video_set_default_colors(struct udevice *dev, bool invert)
+void video_set_default_colors(struct video_priv *priv)
 {
-	struct video_priv *priv = dev_get_uclass_priv(dev);
-	int fore, back;
-
 #ifdef CONFIG_SYS_WHITE_ON_BLACK
 	/* White is used when switching to bold, use light gray here */
-	fore = VID_LIGHT_GRAY;
-	back = VID_BLACK;
+	priv->fg_col_idx = VID_LIGHT_GRAY;
+	priv->colour_fg = vid_console_color(priv, VID_LIGHT_GRAY);
+	priv->colour_bg = vid_console_color(priv, VID_BLACK);
 #else
-	fore = VID_BLACK;
-	back = VID_WHITE;
+	priv->fg_col_idx = VID_BLACK;
+	priv->colour_fg = vid_console_color(priv, VID_BLACK);
+	priv->colour_bg = vid_console_color(priv, VID_WHITE);
 #endif
-	if (invert) {
-		int temp;
-
-		temp = fore;
-		fore = back;
-		back = temp;
-	}
-	priv->fg_col_idx = fore;
-	priv->bg_col_idx = back;
-	priv->colour_fg = vid_console_color(priv, fore);
-	priv->colour_bg = vid_console_color(priv, back);
 }
 
 /* Flush video activity to the caches */
@@ -149,7 +137,7 @@ void video_sync(struct udevice *vid, bool force)
 	 * architectures do not actually implement it. Is there a way to find
 	 * out whether it exists? For now, ARM is safe.
 	 */
-#if defined(CONFIG_ARM) && !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
+#if defined(CONFIG_ARM) && !defined(CONFIG_SYS_DCACHE_OFF)
 	struct video_priv *priv = dev_get_uclass_priv(vid);
 
 	if (priv->flush_dcache) {
@@ -227,13 +215,11 @@ static int video_post_probe(struct udevice *dev)
 
 	/* Set up the line and display size */
 	priv->fb = map_sysmem(plat->base, plat->size);
-	if (!priv->line_length)
-		priv->line_length = priv->xsize * VNBYTES(priv->bpix);
-
+	priv->line_length = priv->xsize * VNBYTES(priv->bpix);
 	priv->fb_size = priv->line_length * priv->ysize;
 
 	/* Set up colors  */
-	video_set_default_colors(dev, false);
+	video_set_default_colors(priv);
 
 	if (!CONFIG_IS_ENABLED(NO_FB_CLEAR))
 		video_clear(dev);

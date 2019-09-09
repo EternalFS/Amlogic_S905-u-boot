@@ -56,7 +56,6 @@
 #define DWMCI_INTMSK_DTO	(1 << 3)
 #define DWMCI_INTMSK_TXDR	(1 << 4)
 #define DWMCI_INTMSK_RXDR	(1 << 5)
-#define DWMCI_INTMSK_RCRC	(1 << 6)
 #define DWMCI_INTMSK_DCRC	(1 << 7)
 #define DWMCI_INTMSK_RTO	(1 << 8)
 #define DWMCI_INTMSK_DRTO	(1 << 9)
@@ -129,13 +128,6 @@
 
 /* UHS register */
 #define DWMCI_DDR_MODE	(1 << 16)
-
-/* Internal IDMAC interrupt defines */
-#define DWMCI_IDINTEN_RI		BIT(1)
-#define DWMCI_IDINTEN_TI		BIT(0)
-
-#define DWMCI_IDINTEN_MASK	(DWMCI_IDINTEN_TI | \
-				 DWMCI_IDINTEN_RI)
 
 /* quirks */
 #define DWMCI_QUIRK_DISABLE_SMU		(1 << 0)

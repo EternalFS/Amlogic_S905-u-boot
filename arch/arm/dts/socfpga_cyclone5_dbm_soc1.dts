@@ -4,7 +4,6 @@
  */
 
 #include "socfpga_cyclone5.dtsi"
-#include "socfpga-common-u-boot.dtsi"
 
 / {
 	model = "Devboards.de DBM-SoC1";
@@ -25,6 +24,10 @@
 		device_type = "memory";
 		reg = <0x0 0x40000000>; /* 1GB */
 	};
+
+	soc {
+		u-boot,dm-pre-reloc;
+	};
 };
 
 &gmac1 {
@@ -44,20 +47,9 @@
 	status = "okay";
 };
 
-&porta {
-	bank-name = "porta";
-};
-
-&portb {
-	bank-name = "portb";
-};
-
-&portc {
-	bank-name = "portc";
-};
-
 &mmc0 {
 	status = "okay";
+	bus-width = <4>;
 	u-boot,dm-pre-reloc;
 };
 
@@ -68,8 +60,4 @@
 
 &uart0 {
 	u-boot,dm-pre-reloc;
-};
-
-&watchdog0 {
-	status = "disabled";
 };

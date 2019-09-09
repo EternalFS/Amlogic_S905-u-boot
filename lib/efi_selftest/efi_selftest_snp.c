@@ -66,7 +66,7 @@ struct dhcp {
 static struct efi_boot_services *boottime;
 static struct efi_simple_network *net;
 static struct efi_event *timer;
-static const efi_guid_t efi_net_guid = EFI_SIMPLE_NETWORK_PROTOCOL_GUID;
+static const efi_guid_t efi_net_guid = EFI_SIMPLE_NETWORK_GUID;
 /* IP packet ID */
 static unsigned int net_ip_id;
 
@@ -103,7 +103,7 @@ static efi_status_t send_dhcp_discover(void)
 	struct dhcp p = {};
 
 	/*
-	 * Fill Ethernet header
+	 * Fill ethernet header
 	 */
 	boottime->copy_mem(p.eth_hdr.et_dest, (void *)BROADCAST_MAC, ARP_HLEN);
 	boottime->copy_mem(p.eth_hdr.et_src, &net->mode->current_address,
@@ -229,19 +229,19 @@ static int setup(const efi_handle_t handle,
 		return EFI_ST_FAILURE;
 	}
 	/*
-	 * Start network adapter.
-	 */
-	ret = net->start(net);
-	if (ret != EFI_SUCCESS && ret != EFI_ALREADY_STARTED) {
-		efi_st_error("Failed to start network adapter\n");
-		return EFI_ST_FAILURE;
-	}
-	/*
 	 * Initialize network adapter.
 	 */
 	ret = net->initialize(net, 0, 0);
 	if (ret != EFI_SUCCESS) {
 		efi_st_error("Failed to initialize network adapter\n");
+		return EFI_ST_FAILURE;
+	}
+	/*
+	 * Start network adapter.
+	 */
+	ret = net->start(net);
+	if (ret != EFI_SUCCESS) {
+		efi_st_error("Failed to start network adapter\n");
 		return EFI_ST_FAILURE;
 	}
 	return EFI_ST_SUCCESS;
@@ -334,8 +334,9 @@ static int execute(void)
 		 * Unfortunately QEMU ignores the broadcast flag.
 		 * So we have to check for broadcasts too.
 		 */
-		if (memcmp(&destaddr, &net->mode->current_address, ARP_HLEN) &&
-		    memcmp(&destaddr, BROADCAST_MAC, ARP_HLEN))
+		if (efi_st_memcmp(&destaddr, &net->mode->current_address,
+				  ARP_HLEN) &&
+		    efi_st_memcmp(&destaddr, BROADCAST_MAC, ARP_HLEN))
 			continue;
 		/*
 		 * Check this is a DHCP reply
@@ -359,7 +360,7 @@ static int execute(void)
 	addr = (u8 *)&buffer.p.ip_udp.ip_src;
 	efi_st_printf("DHCP reply received from %u.%u.%u.%u (%pm) ",
 		      addr[0], addr[1], addr[2], addr[3], &srcaddr);
-	if (!memcmp(&destaddr, BROADCAST_MAC, ARP_HLEN))
+	if (!efi_st_memcmp(&destaddr, BROADCAST_MAC, ARP_HLEN))
 		efi_st_printf("as broadcast message.\n");
 	else
 		efi_st_printf("as unicast message.\n");
@@ -426,12 +427,4 @@ EFI_UNIT_TEST(snp) = {
 	.setup = setup,
 	.execute = execute,
 	.teardown = teardown,
-#ifdef CONFIG_SANDBOX
-	/*
-	 * Running this test on the sandbox requires setting environment
-	 * variable ethact to a network interface connected to a DHCP server and
-	 * ethrotate to 'no'.
-	 */
-	.on_request = true,
-#endif
 };

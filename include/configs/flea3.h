@@ -17,6 +17,8 @@
  /* High Level Configuration Options */
 #define CONFIG_MX35
 
+#define CONFIG_SYS_DCACHE_OFF
+
 #define CONFIG_MACH_TYPE		MACH_TYPE_FLEA3
 
 /* Set TEXT at the beginning of the NOR flash */

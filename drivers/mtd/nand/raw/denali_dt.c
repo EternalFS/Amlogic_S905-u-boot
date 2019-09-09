@@ -62,7 +62,7 @@ static int denali_dt_probe(struct udevice *dev)
 {
 	struct denali_nand_info *denali = dev_get_priv(dev);
 	const struct denali_dt_data *data;
-	struct clk clk, clk_x, clk_ecc;
+	struct clk clk;
 	struct resource res;
 	int ret;
 
@@ -87,64 +87,17 @@ static int denali_dt_probe(struct udevice *dev)
 
 	denali->host = devm_ioremap(dev, res.start, resource_size(&res));
 
-	ret = clk_get_by_name(dev, "nand", &clk);
-	if (ret)
-		ret = clk_get_by_index(dev, 0, &clk);
+	ret = clk_get_by_index(dev, 0, &clk);
 	if (ret)
 		return ret;
-
-	ret = clk_get_by_name(dev, "nand_x", &clk_x);
-	if (ret)
-		clk_x.dev = NULL;
-
-	ret = clk_get_by_name(dev, "ecc", &clk_ecc);
-	if (ret)
-		clk_ecc.dev = NULL;
 
 	ret = clk_enable(&clk);
 	if (ret)
 		return ret;
 
-	if (clk_x.dev) {
-		ret = clk_enable(&clk_x);
-		if (ret)
-			return ret;
-	}
-
-	if (clk_ecc.dev) {
-		ret = clk_enable(&clk_ecc);
-		if (ret)
-			return ret;
-	}
-
-	if (clk_x.dev) {
-		denali->clk_rate = clk_get_rate(&clk);
-		denali->clk_x_rate = clk_get_rate(&clk_x);
-	} else {
-		/*
-		 * Hardcode the clock rates for the backward compatibility.
-		 * This works for both SOCFPGA and UniPhier.
-		 */
-		dev_notice(dev,
-			   "necessary clock is missing. default clock rates are used.\n");
-		denali->clk_rate = 50000000;
-		denali->clk_x_rate = 200000000;
-	}
-
-	ret = reset_get_bulk(dev, &denali->resets);
-	if (ret)
-		dev_warn(dev, "Can't get reset: %d\n", ret);
-	else
-		reset_deassert_bulk(&denali->resets);
+	denali->clk_x_rate = clk_get_rate(&clk);
 
 	return denali_init(denali);
-}
-
-static int denali_dt_remove(struct udevice *dev)
-{
-	struct denali_nand_info *denali = dev_get_priv(dev);
-
-	return reset_release_bulk(&denali->resets);
 }
 
 U_BOOT_DRIVER(denali_nand_dt) = {
@@ -153,8 +106,6 @@ U_BOOT_DRIVER(denali_nand_dt) = {
 	.of_match = denali_nand_dt_ids,
 	.probe = denali_dt_probe,
 	.priv_auto_alloc_size = sizeof(struct denali_nand_info),
-	.remove = denali_dt_remove,
-	.flags = DM_FLAG_OS_PREPARE,
 };
 
 void board_nand_init(void)

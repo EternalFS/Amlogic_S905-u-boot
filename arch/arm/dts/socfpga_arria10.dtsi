@@ -660,7 +660,6 @@
 			fifo-depth = <0x400>;
 			clocks = <&l4_mp_clk>, <&sdmmc_clk>;
 			clock-names = "biu", "ciu";
-			resets = <&rst SDMMC_RESET>;
 			status = "disabled";
 		};
 
@@ -749,7 +748,7 @@
 		};
 
 		qspi: spi@ff809000 {
-			compatible = "cdns,qspi-nor";
+			compatible = "cdns,qspi-nor", "cadence,qspi";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0xff809000 0x100>,

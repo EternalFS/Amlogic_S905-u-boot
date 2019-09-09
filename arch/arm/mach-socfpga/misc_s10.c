@@ -16,7 +16,6 @@
 #include <asm/arch/misc.h>
 #include <asm/pl310.h>
 #include <linux/libfdt.h>
-#include <asm/arch/mailbox_s10.h>
 
 #include <dt-bindings/reset/altr,rst-mgr-s10.h>
 
@@ -24,26 +23,6 @@ DECLARE_GLOBAL_DATA_PTR;
 
 static struct socfpga_system_manager *sysmgr_regs =
 	(struct socfpga_system_manager *)SOCFPGA_SYSMGR_ADDRESS;
-
-/*
- * FPGA programming support for SoC FPGA Stratix 10
- */
-static Altera_desc altera_fpga[] = {
-	{
-		/* Family */
-		Intel_FPGA_Stratix10,
-		/* Interface type */
-		secure_device_manager_mailbox,
-		/* No limitation as additional data will be ignored */
-		-1,
-		/* No device function table */
-		NULL,
-		/* Base interface address specified in driver */
-		NULL,
-		/* No cookie implementation */
-		0
-	},
-};
 
 /*
  * DesignWare Ethernet initialization
@@ -146,23 +125,10 @@ int arch_misc_init(void)
 
 int arch_early_init_r(void)
 {
-	socfpga_fpga_add(&altera_fpga[0]);
-
 	return 0;
 }
 
-void do_bridge_reset(int enable, unsigned int mask)
+void do_bridge_reset(int enable)
 {
-	/* Check FPGA status before bridge enable */
-	if (enable) {
-		int ret = mbox_get_fpga_config_status(MBOX_RECONFIG_STATUS);
-
-		if (ret && ret != MBOX_CFGSTAT_STATE_CONFIG)
-			ret = mbox_get_fpga_config_status(MBOX_CONFIG_STATUS);
-
-		if (ret)
-			return;
-	}
-
 	socfpga_bridges_reset(enable);
 }

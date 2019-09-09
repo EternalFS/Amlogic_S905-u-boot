@@ -233,7 +233,8 @@ static efi_status_t EFIAPI efi_uc_stop(
 	}
 	ret = EFI_CALL(systab.boottime->free_pool(entry_buffer));
 	if (ret != EFI_SUCCESS)
-		printf("%s: ERROR: Cannot free pool\n", __func__);
+		printf("%s(%u) %s: ERROR: Cannot free pool\n",
+		       __FILE__, __LINE__, __func__);
 
 	/* Detach driver from controller */
 	ret = EFI_CALL(systab.boottime->close_protocol(
@@ -299,6 +300,9 @@ efi_status_t efi_driver_init(void)
 {
 	struct driver *drv;
 	efi_status_t ret = EFI_SUCCESS;
+
+	/* Save 'gd' pointer */
+	efi_save_gd();
 
 	debug("EFI: Initializing EFI driver framework\n");
 	for (drv = ll_entry_start(struct driver, driver);

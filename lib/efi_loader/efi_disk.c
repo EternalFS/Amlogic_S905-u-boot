@@ -12,32 +12,28 @@
 #include <part.h>
 #include <malloc.h>
 
-const efi_guid_t efi_block_io_guid = EFI_BLOCK_IO_PROTOCOL_GUID;
+const efi_guid_t efi_block_io_guid = BLOCK_IO_GUID;
 
-/**
- * struct efi_disk_obj - EFI disk object
- *
- * @header:	EFI object header
- * @ops:	EFI disk I/O protocol interface
- * @ifname:	interface name for block device
- * @dev_index:	device index of block device
- * @media:	block I/O media information
- * @dp:		device path to the block device
- * @part:	partition
- * @volume:	simple file system protocol of the partition
- * @offset:	offset into disk for simple partition
- * @desc:	internal block device descriptor
- */
 struct efi_disk_obj {
-	struct efi_object header;
+	/* Generic EFI object parent class data */
+	struct efi_object parent;
+	/* EFI Interface callback struct for block I/O */
 	struct efi_block_io ops;
+	/* U-Boot ifname for block device */
 	const char *ifname;
+	/* U-Boot dev_index for block device */
 	int dev_index;
+	/* EFI Interface Media descriptor struct, referenced by ops */
 	struct efi_block_io_media media;
+	/* EFI device path to this block device */
 	struct efi_device_path *dp;
+	/* partition # */
 	unsigned int part;
+	/* handle to filesys proto (for partition objects) */
 	struct efi_simple_file_system_protocol *volume;
+	/* Offset into disk for simple partitions */
 	lbaint_t offset;
+	/* Internal block device */
 	struct blk_desc *desc;
 };
 
@@ -250,7 +246,7 @@ static efi_status_t efi_disk_add_dev(
 		return EFI_OUT_OF_RESOURCES;
 
 	/* Hook up to the device list */
-	efi_add_handle(&diskobj->header);
+	efi_add_handle(&diskobj->parent);
 
 	/* Fill in object data */
 	if (part) {
@@ -262,18 +258,18 @@ static efi_status_t efi_disk_add_dev(
 		diskobj->dp = efi_dp_from_part(desc, part);
 	}
 	diskobj->part = part;
-	ret = efi_add_protocol(&diskobj->header, &efi_block_io_guid,
+	ret = efi_add_protocol(diskobj->parent.handle, &efi_block_io_guid,
 			       &diskobj->ops);
 	if (ret != EFI_SUCCESS)
 		return ret;
-	ret = efi_add_protocol(&diskobj->header, &efi_guid_device_path,
+	ret = efi_add_protocol(diskobj->parent.handle, &efi_guid_device_path,
 			       diskobj->dp);
 	if (ret != EFI_SUCCESS)
 		return ret;
 	if (part >= 1) {
 		diskobj->volume = efi_simple_file_system(desc, part,
 							 diskobj->dp);
-		ret = efi_add_protocol(&diskobj->header,
+		ret = efi_add_protocol(diskobj->parent.handle,
 				       &efi_simple_file_system_protocol_guid,
 				       diskobj->volume);
 		if (ret != EFI_SUCCESS)
@@ -385,7 +381,7 @@ efi_status_t efi_disk_register(void)
 
 		/* Partitions show up as block devices in EFI */
 		disks += efi_disk_create_partitions(
-					&disk->header, desc, if_typename,
+					disk->parent.handle, desc, if_typename,
 					desc->devnum, dev->name);
 	}
 #else
@@ -430,9 +426,9 @@ efi_status_t efi_disk_register(void)
 			disks++;
 
 			/* Partitions show up as block devices in EFI */
-			disks += efi_disk_create_partitions
-						(&disk->header, desc,
-						 if_typename, i, devname);
+			disks += efi_disk_create_partitions(
+						disk->parent.handle, desc,
+						if_typename, i, devname);
 		}
 	}
 #endif

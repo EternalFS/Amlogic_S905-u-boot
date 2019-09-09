@@ -31,7 +31,7 @@ void flush_cache(unsigned long start, unsigned long size)
 /* system timer offset in ms */
 static unsigned long sandbox_timer_offset;
 
-void timer_test_add_offset(unsigned long offset)
+void sandbox_timer_add_offset(unsigned long offset)
 {
 	sandbox_timer_offset += offset;
 }
@@ -59,15 +59,12 @@ int board_init(void)
 #ifdef CONFIG_BOARD_LATE_INIT
 int board_late_init(void)
 {
-	struct udevice *dev;
-	int ret;
-
-	ret = uclass_first_device_err(UCLASS_CROS_EC, &dev);
-	if (ret && ret != -ENODEV) {
+	if (cros_ec_get_error()) {
 		/* Force console on */
 		gd->flags &= ~GD_FLG_SILENT;
 
-		printf("cros-ec communications failure %d\n", ret);
+		printf("cros-ec communications failure %d\n",
+		       cros_ec_get_error());
 		puts("\nPlease reset with Power+Refresh\n\n");
 		panic("Cannot init cros-ec device");
 		return -1;

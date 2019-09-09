@@ -78,9 +78,10 @@ static char *dp_acpi(char *s, struct efi_device_path *dp)
 	case DEVICE_PATH_SUB_TYPE_ACPI_DEVICE: {
 		struct efi_device_path_acpi_path *adp =
 			(struct efi_device_path_acpi_path *)dp;
-
-		s += sprintf(s, "Acpi(PNP%04X,%d)", EISA_PNP_NUM(adp->hid),
-			     adp->uid);
+		s += sprintf(s, "Acpi(PNP%04x", EISA_PNP_NUM(adp->hid));
+		if (adp->uid)
+			s += sprintf(s, ",%d", adp->uid);
+		s += sprintf(s, ")");
 		break;
 	}
 	default:
@@ -268,9 +269,9 @@ static char *efi_convert_single_device_node_to_text(
  * for details.
  *
  * device_node		device node to be converted
- * display_only		true if the shorter text representation shall be used
+ * display_only		true if the shorter text represenation shall be used
  * allow_shortcuts	true if shortcut forms may be used
- * @return		text representation of the device path
+ * @return		text represenation of the device path
  *			NULL if out of memory of device_path is NULL
  */
 static uint16_t EFIAPI *efi_convert_device_node_to_text(
@@ -301,9 +302,9 @@ out:
  * for details.
  *
  * device_path		device path to be converted
- * display_only		true if the shorter text representation shall be used
+ * display_only		true if the shorter text represenation shall be used
  * allow_shortcuts	true if shortcut forms may be used
- * @return		text representation of the device path
+ * @return		text represenation of the device path
  *			NULL if out of memory of device_path is NULL
  */
 static uint16_t EFIAPI *efi_convert_device_path_to_text(

@@ -118,6 +118,13 @@ struct spi_slave {
 };
 
 /**
+ * Initialization, must be called once on start up.
+ *
+ * TODO: I don't think we really need this.
+ */
+void spi_init(void);
+
+/**
  * spi_do_alloc_slave - Allocate a new SPI slave (internal)
  *
  * Allocate and zero all fields in the spi slave, and set the bus/chip
@@ -496,15 +503,14 @@ int spi_find_bus_and_cs(int busnum, int cs, struct udevice **busp,
  * device and slave device.
  *
  * If no such slave exists, and drv_name is not NULL, then a new slave device
- * is automatically bound on this chip select with requested speed and mode.
+ * is automatically bound on this chip select.
  *
- * Ths new slave device is probed ready for use with the speed and mode
- * from platdata when available or the requested values.
+ * Ths new slave device is probed ready for use with the given speed and mode.
  *
  * @busnum:	SPI bus number
  * @cs:		Chip select to look for
- * @speed:	SPI speed to use for this slave when not available in platdata
- * @mode:	SPI mode to use for this slave when not available in platdata
+ * @speed:	SPI speed to use for this slave
+ * @mode:	SPI mode to use for this slave
  * @drv_name:	Name of driver to attach to this chip select
  * @dev_name:	Name of the new device thus created
  * @busp:	Returns bus device

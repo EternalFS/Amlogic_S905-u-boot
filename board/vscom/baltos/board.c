@@ -27,6 +27,7 @@
 #include <i2c.h>
 #include <miiphy.h>
 #include <cpsw.h>
+#include <power/tps65217.h>
 #include <power/tps65910.h>
 #include <environment.h>
 #include <watchdog.h>
@@ -34,7 +35,8 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-/* GPIO that controls DIP switch and mPCIe slot */
+/* GPIO that controls power to DDR on EVM-SK */
+#define GPIO_DDR_VTT_EN		7
 #define DIP_S1			44
 #define MPCIE_SW		100
 
@@ -246,6 +248,9 @@ const struct ctrl_ioregs ioregs_baltos = {
 
 void sdram_init(void)
 {
+	gpio_request(GPIO_DDR_VTT_EN, "ddr_vtt_en");
+	gpio_direction_output(GPIO_DDR_VTT_EN, 1);
+
 	config_ddr(400, &ioregs_baltos,
 		   &ddr3_baltos_data,
 		   &ddr3_baltos_cmd_ctrl_data,
