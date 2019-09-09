@@ -11,7 +11,7 @@
 
 #define CONFIG_MISC_INIT_R
 
-#define MESON_FDTFILE_SETTING "fdtfile=amlogic/meson-gxm-khadas-vim2.dtb\0"
+#define MESON_FDTFILE_SETTING "fdtfile=meson-gxm-khadas-vim2.dtb\0"
 
 #include <configs/meson-gx-common.h>
 
