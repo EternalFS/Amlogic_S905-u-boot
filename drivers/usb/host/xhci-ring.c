@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * USB HOST XHCI Controller stack
  *
@@ -11,6 +10,8 @@
  * Copyright (C) 2013 Samsung Electronics Co.Ltd
  * Authors: Vivek Gautam <gautam.vivek@samsung.com>
  *	    Vikas Sajjan <vikas.sajjan@samsung.com>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -556,7 +557,7 @@ int xhci_bulk_tx(struct usb_device *udev, unsigned long pipe,
 {
 	int num_trbs = 0;
 	struct xhci_generic_trb *start_trb;
-	bool first_trb = false;
+	bool first_trb = 0;
 	int start_cycle;
 	u32 field = 0;
 	u32 length_field = 0;

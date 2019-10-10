@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2016 Vladimir Zapolskiy <vz@mleia.com>
  * Copyright (C) 2007, 2010 Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <asm-offsets.h>
@@ -12,6 +13,12 @@
 
 	.global	_start
 _start:
+#ifdef CONFIG_CPU_SH2
+	.long 0x00000010        /* Ppower ON reset PC*/
+	.long 0x00000000
+	.long 0x00000010        /* Manual reset PC */
+	.long 0x00000000
+#endif
 	mov.l	._lowlevel_init, r0
 100:	bsrf	r0
 	nop

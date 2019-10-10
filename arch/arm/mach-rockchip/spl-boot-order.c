@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2017 Theobroma Systems Design und Consulting GmbH
+ *
+ * SPDX-License-Identifier:     GPL-2.0+
  */
 
 #include <common.h>
@@ -8,7 +9,7 @@
 #include <mmc.h>
 #include <spl.h>
 
-#if CONFIG_IS_ENABLED(OF_CONTROL)
+#if CONFIG_IS_ENABLED(OF_CONTROL) && ! CONFIG_IS_ENABLED(OF_PLATDATA)
 /**
  * spl_node_to_boot_device() - maps from a DT-node to a SPL boot device
  * @node:	of_offset of the node
@@ -61,9 +62,6 @@ static int spl_node_to_boot_device(int node)
 		default:
 			return -ENOSYS;
 		}
-	} else if (!uclass_get_device_by_of_offset(UCLASS_SPI_FLASH, node,
-		&parent)) {
-		return BOOT_DEVICE_SPI;
 	}
 
 	/*

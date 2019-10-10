@@ -4,10 +4,6 @@ menu "Partition Types"
 config PARTITIONS
 	bool "Enable Partition Labels (disklabels) support"
 	default y
-	select SPL_SPRINTF if SPL
-	select TPL_SPRINTF if TPL
-	select SPL_STRTO if SPL
-	select TPL_STRTO if TPL
 	help
 	  Partition Labels (disklabels) Supported:
 	  Zero or more of the following:
@@ -57,6 +53,7 @@ config ISO_PARTITION
 config SPL_ISO_PARTITION
 	bool "Enable ISO partition table for SPL"
 	depends on SPL && PARTITIONS
+	default y if ISO_PARTITION
 
 config AMIGA_PARTITION
 	bool "Enable AMIGA partition table"
@@ -75,7 +72,6 @@ config EFI_PARTITION
 	depends on PARTITIONS
 	default y if DISTRO_DEFAULTS
 	default y if TEGRA
-	select LIB_UUID
 	help
 	  Say Y here if you would like to use device under U-Boot which
 	  were partitioned using EFI GPT.
@@ -119,7 +115,6 @@ config PARTITION_UUIDS
 	depends on PARTITIONS
 	default y if DISTRO_DEFAULTS
 	default y if EFI_PARTITION
-	select LIB_UUID
 	help
 	  Activate the configuration of UUID for partition
 
@@ -135,5 +130,15 @@ config PARTITION_TYPE_GUID
 	help
 	  Activate the configuration of GUID type
 	  for EFI partition
+
+config RKPARM_PARTITION
+	bool "Enable Rockchip parameter partition table"
+	depends on PARTITIONS
+	help
+	  Say Y here if you would like to use device under U-Boot which
+	  were partitioned using Rockchip parameter.
+
+config SPL_ROCKCHIP_PARTITION
+	bool "Enable Rockchip partition table for SPL"
 
 endmenu

@@ -37,7 +37,6 @@ config TARGET_B4860QDS
 	select BOARD_LATE_INIT if CHAIN_OF_TRUST
 	select SUPPORT_SPL
 	select PHYS_64BIT
-	select FSL_DDR_INTERACTIVE if !SPL_BUILD
 	imply PANIC_HANG
 
 config TARGET_BSC9131RDB
@@ -52,7 +51,6 @@ config TARGET_BSC9132QDS
 	select BOARD_LATE_INIT if CHAIN_OF_TRUST
 	select SUPPORT_SPL
 	select BOARD_EARLY_INIT_F
-	select FSL_DDR_INTERACTIVE
 
 config TARGET_C29XPCIE
 	bool "Support C29XPCIE"
@@ -101,7 +99,6 @@ config TARGET_MPC8536DS
 # Use DDR3 controller with DDR2 DIMMs on this board
 	select SYS_FSL_DDRC_GEN3
 	imply CMD_SATA
-	imply FSL_SATA
 
 config TARGET_MPC8541CDS
 	bool "Support MPC8541CDS"
@@ -162,12 +159,10 @@ config TARGET_P1022DS
 	select SUPPORT_SPL
 	select SUPPORT_TPL
 	imply CMD_SATA
-	imply FSL_SATA
 
 config TARGET_P1023RDB
 	bool "Support P1023RDB"
 	select ARCH_P1023
-	select FSL_DDR_INTERACTIVE
 	imply CMD_EEPROM
 	imply PANIC_HANG
 
@@ -232,7 +227,6 @@ config TARGET_P1025RDB
 	select ARCH_P1025
 	imply CMD_EEPROM
 	imply CMD_SATA
-	imply SATA_SIL
 
 config TARGET_P2020RDB
 	bool "Support P2020RDB-PC"
@@ -241,7 +235,6 @@ config TARGET_P2020RDB
 	select ARCH_P2020
 	imply CMD_EEPROM
 	imply CMD_SATA
-	imply SATA_SIL
 
 config TARGET_P1_TWR
 	bool "Support p1_twr"
@@ -253,7 +246,6 @@ config TARGET_P2041RDB
 	select BOARD_LATE_INIT if CHAIN_OF_TRUST
 	select PHYS_64BIT
 	imply CMD_SATA
-	imply FSL_SATA
 
 config TARGET_QEMU_PPCE500
 	bool "Support qemu-ppce500"
@@ -268,7 +260,6 @@ config TARGET_T1024QDS
 	select PHYS_64BIT
 	imply CMD_EEPROM
 	imply CMD_SATA
-	imply FSL_SATA
 
 config TARGET_T1023RDB
 	bool "Support T1023RDB"
@@ -276,7 +267,6 @@ config TARGET_T1023RDB
 	select BOARD_LATE_INIT if CHAIN_OF_TRUST
 	select SUPPORT_SPL
 	select PHYS_64BIT
-	select FSL_DDR_INTERACTIVE
 	imply CMD_EEPROM
 	imply PANIC_HANG
 
@@ -286,7 +276,6 @@ config TARGET_T1024RDB
 	select BOARD_LATE_INIT if CHAIN_OF_TRUST
 	select SUPPORT_SPL
 	select PHYS_64BIT
-	select FSL_DDR_INTERACTIVE
 	imply CMD_EEPROM
 	imply PANIC_HANG
 
@@ -295,7 +284,6 @@ config TARGET_T1040QDS
 	select ARCH_T1040
 	select BOARD_LATE_INIT if CHAIN_OF_TRUST
 	select PHYS_64BIT
-	select FSL_DDR_INTERACTIVE
 	imply CMD_EEPROM
 	imply CMD_SATA
 	imply PANIC_HANG
@@ -350,8 +338,7 @@ config TARGET_T2080QDS
 	select BOARD_LATE_INIT if CHAIN_OF_TRUST
 	select SUPPORT_SPL
 	select PHYS_64BIT
-	select FSL_DDR_FIRST_SLOT_QUAD_CAPABLE
-	select FSL_DDR_INTERACTIVE
+	imply CMD_SATA
 
 config TARGET_T2080RDB
 	bool "Support T2080RDB"
@@ -360,7 +347,6 @@ config TARGET_T2080RDB
 	select SUPPORT_SPL
 	select PHYS_64BIT
 	imply CMD_SATA
-	imply FSL_SATA
 	imply PANIC_HANG
 
 config TARGET_T2081QDS
@@ -368,8 +354,6 @@ config TARGET_T2081QDS
 	select ARCH_T2081
 	select SUPPORT_SPL
 	select PHYS_64BIT
-	select FSL_DDR_FIRST_SLOT_QUAD_CAPABLE
-	select FSL_DDR_INTERACTIVE
 
 config TARGET_T4160QDS
 	bool "Support T4160QDS"
@@ -393,7 +377,6 @@ config TARGET_T4240QDS
 	select BOARD_LATE_INIT if CHAIN_OF_TRUST
 	select SUPPORT_SPL
 	select PHYS_64BIT
-	select FSL_DDR_FIRST_SLOT_QUAD_CAPABLE
 	imply CMD_SATA
 	imply PANIC_HANG
 
@@ -402,7 +385,6 @@ config TARGET_T4240RDB
 	select ARCH_T4240
 	select SUPPORT_SPL
 	select PHYS_64BIT
-	select FSL_DDR_FIRST_SLOT_QUAD_CAPABLE
 	imply CMD_SATA
 	imply PANIC_HANG
 
@@ -414,7 +396,6 @@ config TARGET_KMP204X
 	bool "Support kmp204x"
 	select ARCH_P2041
 	select PHYS_64BIT
-	select FSL_DDR_INTERACTIVE
 	imply CMD_CRAMFS
 	imply FS_CRAMFS
 
@@ -672,7 +653,6 @@ config ARCH_P1010
 	select SYS_FSL_ERRATUM_A004477
 	select SYS_FSL_ERRATUM_A004508
 	select SYS_FSL_ERRATUM_A005125
-	select SYS_FSL_ERRATUM_A005275
 	select SYS_FSL_ERRATUM_A006261
 	select SYS_FSL_ERRATUM_A007075
 	select SYS_FSL_ERRATUM_ESDHC111
@@ -693,7 +673,6 @@ config ARCH_P1010
 	imply CMD_SATA
 	imply CMD_PCI
 	imply CMD_REGINFO
-	imply FSL_SATA
 
 config ARCH_P1011
 	bool
@@ -726,7 +705,6 @@ config ARCH_P1020
 	imply CMD_SATA
 	imply CMD_PCI
 	imply CMD_REGINFO
-	imply SATA_SIL
 
 config ARCH_P1021
 	bool
@@ -745,7 +723,6 @@ config ARCH_P1021
 	imply CMD_NAND
 	imply CMD_SATA
 	imply CMD_REGINFO
-	imply SATA_SIL
 
 config ARCH_P1022
 	bool
@@ -793,7 +770,6 @@ config ARCH_P1024
 	imply CMD_SATA
 	imply CMD_PCI
 	imply CMD_REGINFO
-	imply SATA_SIL
 
 config ARCH_P1025
 	bool
@@ -835,7 +811,6 @@ config ARCH_P2041
 	select FSL_LAW
 	select SYS_FSL_ERRATUM_A004510
 	select SYS_FSL_ERRATUM_A004849
-	select SYS_FSL_ERRATUM_A005275
 	select SYS_FSL_ERRATUM_A006261
 	select SYS_FSL_ERRATUM_CPU_A003999
 	select SYS_FSL_ERRATUM_DDR_A003
@@ -860,7 +835,6 @@ config ARCH_P3041
 	select SYS_FSL_DDR_VER_44
 	select SYS_FSL_ERRATUM_A004510
 	select SYS_FSL_ERRATUM_A004849
-	select SYS_FSL_ERRATUM_A005275
 	select SYS_FSL_ERRATUM_A005812
 	select SYS_FSL_ERRATUM_A006261
 	select SYS_FSL_ERRATUM_CPU_A003999
@@ -880,7 +854,6 @@ config ARCH_P3041
 	imply CMD_NAND
 	imply CMD_SATA
 	imply CMD_REGINFO
-	imply FSL_SATA
 
 config ARCH_P4080
 	bool
@@ -918,7 +891,6 @@ config ARCH_P4080
 	select FSL_ELBC
 	imply CMD_SATA
 	imply CMD_REGINFO
-	imply SATA_SIL
 
 config ARCH_P5020
 	bool
@@ -926,7 +898,6 @@ config ARCH_P5020
 	select FSL_LAW
 	select SYS_FSL_DDR_VER_44
 	select SYS_FSL_ERRATUM_A004510
-	select SYS_FSL_ERRATUM_A005275
 	select SYS_FSL_ERRATUM_A006261
 	select SYS_FSL_ERRATUM_DDR_A003
 	select SYS_FSL_ERRATUM_DDR_A003474
@@ -943,7 +914,6 @@ config ARCH_P5020
 	select FSL_ELBC
 	imply CMD_SATA
 	imply CMD_REGINFO
-	imply FSL_SATA
 
 config ARCH_P5040
 	bool
@@ -952,7 +922,6 @@ config ARCH_P5040
 	select SYS_FSL_DDR_VER_44
 	select SYS_FSL_ERRATUM_A004510
 	select SYS_FSL_ERRATUM_A004699
-	select SYS_FSL_ERRATUM_A005275
 	select SYS_FSL_ERRATUM_A005812
 	select SYS_FSL_ERRATUM_A006261
 	select SYS_FSL_ERRATUM_DDR_A003
@@ -968,7 +937,6 @@ config ARCH_P5040
 	select FSL_ELBC
 	imply CMD_SATA
 	imply CMD_REGINFO
-	imply FSL_SATA
 
 config ARCH_QEMU_E500
 	bool
@@ -1035,7 +1003,6 @@ config ARCH_T1040
 	imply CMD_NAND
 	imply CMD_SATA
 	imply CMD_REGINFO
-	imply FSL_SATA
 
 config ARCH_T1042
 	bool
@@ -1058,7 +1025,6 @@ config ARCH_T1042
 	imply CMD_NAND
 	imply CMD_SATA
 	imply CMD_REGINFO
-	imply FSL_SATA
 
 config ARCH_T2080
 	bool
@@ -1081,6 +1047,7 @@ config ARCH_T2080
 	select SYS_FSL_SEC_COMPAT_4
 	select SYS_PPC64
 	select FSL_IFC
+	imply CMD_SATA
 	imply CMD_NAND
 	imply CMD_REGINFO
 
@@ -1129,7 +1096,6 @@ config ARCH_T4160
 	imply CMD_SATA
 	imply CMD_NAND
 	imply CMD_REGINFO
-	imply FSL_SATA
 
 config ARCH_T4240
 	bool
@@ -1157,11 +1123,6 @@ config ARCH_T4240
 	imply CMD_SATA
 	imply CMD_NAND
 	imply CMD_REGINFO
-	imply FSL_SATA
-
-config MPC85XX_HAVE_RESET_VECTOR
-	bool "Indicate reset vector at CONFIG_RESET_VECTOR_ADDRESS - 0xffc"
-	depends on MPC85xx
 
 config BOOKE
 	bool
@@ -1317,9 +1278,6 @@ config SYS_FSL_ERRATUM_A005812
 	bool
 
 config SYS_FSL_ERRATUM_A005871
-	bool
-
-config SYS_FSL_ERRATUM_A005275
 	bool
 
 config SYS_FSL_ERRATUM_A006261

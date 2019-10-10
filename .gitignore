@@ -3,44 +3,40 @@
 # subdirectories here. Add them in the ".gitignore" file
 # in that subdirectory instead.
 #
-# Normal rules (sorted alphabetically)
+# Normal rules
 #
 .*
-*.a
-*.cfgout
-*.dtb
-*.dtbo
-*.dtb.S
-*.elf
-*.exe
-*.gcda
-*.gcno
-*.i
-*.lex.c
-*.lst
-*.mod.c
 *.o
 *.o.*
-*.order
-*.patch
+*.a
 *.s
 *.su
+*.mod.c
+*.i
+*.lst
+*.order
+*.elf
 *.swp
-*.tab.[ch]
+*.bin
+*.patch
+*.cfgtmp
+*.img
+
+# host programs on Cygwin
+*.exe
 
 # Build tree
 /build-*
-
+/rockdev
 #
 # Top-level generic files
 #
-fit-dtb.blob*
+fit-dtb.blob
 /MLO*
 /SPL*
 /System.map
 /u-boot*
 /boards.cfg
-/*.log
 
 #
 # git files that we don't want to ignore even it they are dot-files
@@ -51,6 +47,7 @@ fit-dtb.blob*
 #
 # Generated files
 #
+/LOG
 /spl/
 /tpl/
 /defconfig

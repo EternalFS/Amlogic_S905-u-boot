@@ -1,13 +1,18 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2012 Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
  * Copyright (C) 2012 Renesas Solutions Corp.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __KZM9G_H
 #define __KZM9G_H
 
+#undef DEBUG
+
 #define CONFIG_SH73A0
+#define CONFIG_KZM_A9_GT
+#define CONFIG_ARCH_RMOBILE_BOARD_STRING	"KMC KZM-A9-GT"
 #define CONFIG_MACH_TYPE MACH_TYPE_KZM9G
 
 #include <asm/arch/rmobile.h>
@@ -24,6 +29,7 @@
 #define KZM_SDRAM_BASE	(0x40000000)
 #define PHYS_SDRAM		KZM_SDRAM_BASE
 #define PHYS_SDRAM_SIZE		(512 * 1024 * 1024)
+#define CONFIG_NR_DRAM_BANKS	(1)
 
 /* NOR Flash */
 #define KZM_FLASH_BASE	(0x00000000)
@@ -33,6 +39,7 @@
 #define CONFIG_SYS_MAX_FLASH_SECT	(512)
 
 /* prompt */
+#define CONFIG_SYS_LONGHELP
 #define CONFIG_SYS_PBSIZE		256
 #define CONFIG_SYS_BAUDRATE_TABLE	{ 115200 }
 
@@ -42,6 +49,7 @@
 #define CONFIG_SYS_MEMTEST_START	(KZM_SDRAM_BASE)
 #define CONFIG_SYS_MEMTEST_END \
 	(CONFIG_SYS_MEMTEST_START + (60 * 1024 * 1024))
+#undef  CONFIG_SYS_ALT_MEMTEST
 #undef  CONFIG_SYS_MEMTEST_SCRATCH
 #undef  CONFIG_SYS_LOADS_BAUD_CHANGE
 
@@ -60,9 +68,12 @@
 #define CONFIG_SYS_MALLOC_LEN	(CONFIG_ENV_SIZE + 128 * 1024)
 #define CONFIG_SYS_BOOTMAPSZ	(8 * 1024 * 1024)
 
+#define CONFIG_SYS_TEXT_BASE		0x00000000
 #define CONFIG_STANDALONE_LOAD_ADDR	0x41000000
 
 /* FLASH */
+#define CONFIG_FLASH_CFI_DRIVER
+#define CONFIG_SYS_FLASH_CFI
 #undef  CONFIG_SYS_FLASH_QUIET_TEST
 #define CONFIG_SYS_FLASH_EMPTY_INFO
 #define FLASH_SECTOR_SIZE	(256 * 1024)	/* 256 KB sectors */
@@ -79,6 +90,7 @@
 /* Timeout for Flash clear lock bit operations (in ms) */
 #define CONFIG_SYS_FLASH_UNLOCK_TOUT	(3 * 1000)
 
+#undef  CONFIG_SYS_FLASH_PROTECTION
 #undef  CONFIG_SYS_DIRECT_FLASH_TFTP
 
 /* GPIO / PFC */
@@ -91,6 +103,10 @@
 #define CONFIG_SH_SCIF_CLK_FREQ CONFIG_SYS_CLK_FREQ
 #define TMU_CLK_DIVIDER		(4)	/* 4 (default), 16, 64, 256 or 1024 */
 
+/* Ether */
+#define CONFIG_SMC911X
+#define CONFIG_SMC911X_BASE	(0x10000000)
+#define CONFIG_SMC911X_32_BIT
 #define CONFIG_NFS_TIMEOUT 10000UL
 
 /* I2C */

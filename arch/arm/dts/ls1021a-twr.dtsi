@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Freescale ls1021a TWR board common device tree source
  *
  * Copyright 2013-2015 Freescale Semiconductor, Inc.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include "ls1021a.dtsi"
@@ -11,9 +12,9 @@
 	model = "LS1021A TWR Board";
 
 	aliases {
-		enet2-rgmii-phy = &rgmii_phy1;
-		enet0-sgmii-phy = &sgmii_phy2;
-		enet1-sgmii-phy = &sgmii_phy0;
+		enet2_rgmii_phy = &rgmii_phy1;
+		enet0_sgmii_phy = &sgmii_phy2;
+		enet1_sgmii_phy = &sgmii_phy0;
 		spi0 = &qspi;
 		spi1 = &dspi1;
 	};
@@ -30,7 +31,7 @@
 	qflash0: n25q128a13@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "jedec,spi-nor";
+		compatible = "spi-flash";
 		spi-max-frequency = <20000000>;
 		reg = <0>;
 	};
@@ -43,7 +44,7 @@
 	dspiflash: at26df081a@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "jedec,spi-nor";
+		compatible = "spi-flash";
 		spi-max-frequency = <16000000>;
 		spi-cpol;
 		spi-cpha;
@@ -101,9 +102,5 @@
 };
 
 &uart1 {
-	status = "okay";
-};
-
-&sata {
 	status = "okay";
 };

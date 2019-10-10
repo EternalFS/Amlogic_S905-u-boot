@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ *
+ * SPDX-License-Identifier:	GPL-2.0
  */
 
 #ifndef _LINUX_INPUT_H

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: BSD-3-Clause
 /*
  * Reference to the ARM TF Project,
  * plat/arm/common/arm_bl2_setup.c
@@ -7,6 +6,8 @@
  * Copyright (C) 2016 Rockchip Electronic Co.,Ltd
  * Written by Kever Yang <kever.yang@rock-chips.com>
  * Copyright (C) 2017 Theobroma Systems Design und Consulting GmbH
+ *
+ * SPDX-License-Identifier:     BSD-3-Clause
  */
 
 #include <common.h>

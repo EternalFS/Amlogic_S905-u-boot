@@ -25,7 +25,7 @@
 			data = /incbin/("../../../tee.bin");
 			type = "firmware";
 			arch = "arm";
-			os = "tee";
+			os = "op-tee";
 			compression = "none";
 			load = <0x68400000>;
 			entry = <0x68400000>;

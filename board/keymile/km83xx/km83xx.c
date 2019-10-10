@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2006 Freescale Semiconductor, Inc.
  *                    Dave Liu <daveliu@freescale.com>
@@ -11,6 +10,8 @@
  *
  * (C) Copyright 2008 - 2010
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -22,7 +23,7 @@
 #include <asm/mmu.h>
 #include <asm/processor.h>
 #include <pci.h>
-#include <linux/libfdt.h>
+#include <libfdt.h>
 #include <post.h>
 
 #include "../common/common.h"
@@ -33,7 +34,7 @@ static uchar ivm_content[CONFIG_SYS_IVM_EEPROM_MAX_LEN];
 
 const qe_iop_conf_t qe_iop_conf_tab[] = {
 	/* port pin dir open_drain assign */
-#if defined(CONFIG_ARCH_MPC8360)
+#if defined(CONFIG_MPC8360)
 	/* MDIO */
 	{0,  1, 3, 0, 2}, /* MDIO */
 	{0,  2, 1, 0, 1}, /* MDC */
@@ -56,7 +57,7 @@ const qe_iop_conf_t qe_iop_conf_tab[] = {
 	{5,  2, 1, 0, 1}, /* UART2_RTS */
 	{5,  3, 2, 0, 2}, /* UART2_SIN */
 	{5,  1, 2, 0, 3}, /* UART2_CTS */
-#elif !defined(CONFIG_ARCH_MPC8309)
+#elif !defined(CONFIG_MPC8309)
 	/* Local Bus */
 	{0, 16, 1, 0, 3}, /* LA00 */
 	{0, 17, 1, 0, 3}, /* LA01 */
@@ -148,7 +149,7 @@ int board_early_init_r(void)
 	u32 *mxmr = &lbc->mamr;
 #endif
 
-#if defined(CONFIG_ARCH_MPC8360)
+#if defined(CONFIG_MPC8360)
 	unsigned short	svid;
 	/*
 	 * Because of errata in the UCCs, we have to write to the reserved
@@ -271,7 +272,7 @@ int last_stage_init(void)
 	}
 #endif
 
-#if defined(CONFIG_TARGET_KMCOGE5NE)
+#if defined(CONFIG_KMCOGE5NE)
 	struct bfticu_iomap *base =
 		(struct bfticu_iomap *)CONFIG_SYS_BFTIC3_BASE;
 	u8 dip_switch = in_8((u8 *)&(base->mswitch)) & BFTICU_DIPSWITCH_MASK;
@@ -311,7 +312,7 @@ static int fixed_sdram(void)
 
 	msize = CONFIG_SYS_DDR_SIZE << 20;
 	disable_addr_trans();
-	msize = get_ram_size(CONFIG_SYS_SDRAM_BASE, msize);
+	msize = get_ram_size(CONFIG_SYS_DDR_BASE, msize);
 	enable_addr_trans();
 	msize /= (1024 * 1024);
 	if (CONFIG_SYS_DDR_SIZE != msize) {
@@ -338,7 +339,7 @@ int dram_init(void)
 		return -ENXIO;
 
 	out_be32(&im->sysconf.ddrlaw[0].bar,
-		CONFIG_SYS_SDRAM_BASE & LAWBAR_BAR);
+		CONFIG_SYS_DDR_BASE & LAWBAR_BAR);
 	msize = fixed_sdram();
 
 #if defined(CONFIG_DDR_ECC) && !defined(CONFIG_ECC_INIT_VIA_DDRCONTROLLER)

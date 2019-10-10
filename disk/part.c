@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2001
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -20,9 +21,9 @@
 #define PRINTF(fmt,args...)
 #endif
 
-/* Check all partition types */
-#define PART_TYPE_ALL		-1
+DECLARE_GLOBAL_DATA_PTR;
 
+#ifdef HAVE_BLOCK_DEVICE
 static struct part_driver *part_driver_lookup_type(struct blk_desc *dev_desc)
 {
 	struct part_driver *drv =
@@ -51,7 +52,6 @@ static struct part_driver *part_driver_lookup_type(struct blk_desc *dev_desc)
 	return NULL;
 }
 
-#ifdef CONFIG_HAVE_BLOCK_DEVICE
 static struct blk_desc *get_dev_hwpart(const char *ifname, int dev, int hwpart)
 {
 	struct blk_desc *dev_desc;
@@ -89,7 +89,7 @@ struct blk_desc *blk_get_dev(const char *ifname, int dev)
 }
 #endif
 
-#ifdef CONFIG_HAVE_BLOCK_DEVICE
+#ifdef HAVE_BLOCK_DEVICE
 
 /* ------------------------------------------------------------------------- */
 /*
@@ -145,13 +145,13 @@ void dev_print (struct blk_desc *dev_desc)
 	case IF_TYPE_MMC:
 	case IF_TYPE_USB:
 	case IF_TYPE_NVME:
-		printf ("Vendor: %s Rev: %s Prod: %s\n",
-			dev_desc->vendor,
-			dev_desc->revision,
-			dev_desc->product);
-		break;
-	case IF_TYPE_VIRTIO:
-		printf("%s VirtIO Block Device\n", dev_desc->vendor);
+	case IF_TYPE_RKNAND:
+	case IF_TYPE_SPINAND:
+	case IF_TYPE_SPINOR:
+		printf("Vendor: %s Rev: %s Prod: %s\n",
+		       dev_desc->vendor,
+		       dev_desc->revision,
+		       dev_desc->product);
 		break;
 	case IF_TYPE_DOC:
 		puts("device type DOC\n");
@@ -224,7 +224,7 @@ void dev_print (struct blk_desc *dev_desc)
 }
 #endif
 
-#ifdef CONFIG_HAVE_BLOCK_DEVICE
+#ifdef HAVE_BLOCK_DEVICE
 
 void part_init(struct blk_desc *dev_desc)
 {
@@ -284,8 +284,14 @@ static void print_part_header(const char *type, struct blk_desc *dev_desc)
 	case IF_TYPE_NVME:
 		puts ("NVMe");
 		break;
-	case IF_TYPE_VIRTIO:
-		puts("VirtIO");
+	case IF_TYPE_RKNAND:
+		puts("RKNAND");
+		break;
+	case IF_TYPE_SPINAND:
+		puts("SPINAND");
+		break;
+	case IF_TYPE_SPINOR:
+		puts("SPINOR");
 		break;
 	default:
 		puts ("UNKNOWN");
@@ -313,12 +319,12 @@ void part_print(struct blk_desc *dev_desc)
 		drv->print(dev_desc);
 }
 
-#endif /* CONFIG_HAVE_BLOCK_DEVICE */
+#endif /* HAVE_BLOCK_DEVICE */
 
 int part_get_info(struct blk_desc *dev_desc, int part,
 		       disk_partition_t *info)
 {
-#ifdef CONFIG_HAVE_BLOCK_DEVICE
+#ifdef HAVE_BLOCK_DEVICE
 	struct part_driver *drv;
 
 #if CONFIG_IS_ENABLED(PARTITION_UUIDS)
@@ -344,7 +350,7 @@ int part_get_info(struct blk_desc *dev_desc, int part,
 		PRINTF("## Valid %s partition found ##\n", drv->name);
 		return 0;
 	}
-#endif /* CONFIG_HAVE_BLOCK_DEVICE */
+#endif /* HAVE_BLOCK_DEVICE */
 
 	return -1;
 }
@@ -406,12 +412,12 @@ int blk_get_device_by_str(const char *ifname, const char *dev_hwpart_str,
 
 	*dev_desc = get_dev_hwpart(ifname, dev, hwpart);
 	if (!(*dev_desc) || ((*dev_desc)->type == DEV_TYPE_UNKNOWN)) {
-		debug("** Bad device %s %s **\n", ifname, dev_hwpart_str);
+		printf("** Bad device %s %s **\n", ifname, dev_hwpart_str);
 		dev = -ENOENT;
 		goto cleanup;
 	}
 
-#ifdef CONFIG_HAVE_BLOCK_DEVICE
+#ifdef HAVE_BLOCK_DEVICE
 	/*
 	 * Updates the partition table for the specified hw partition.
 	 * Does not need to be done for hwpart 0 since it is default and
@@ -468,7 +474,7 @@ int blk_get_device_part_str(const char *ifname, const char *dev_part_str,
 
 #ifdef CONFIG_CMD_UBIFS
 	/*
-	 * Special-case ubi, ubi goes through a mtd, rather than through
+	 * Special-case ubi, ubi goes through a mtd, rathen then through
 	 * a regular block device.
 	 */
 	if (0 == strcmp(ifname, "ubi")) {
@@ -644,8 +650,8 @@ cleanup:
 	return ret;
 }
 
-int part_get_info_by_name_type(struct blk_desc *dev_desc, const char *name,
-			       disk_partition_t *info, int part_type)
+int part_get_info_by_name(struct blk_desc *dev_desc, const char *name,
+	disk_partition_t *info)
 {
 	struct part_driver *part_drv;
 	int ret;
@@ -667,12 +673,6 @@ int part_get_info_by_name_type(struct blk_desc *dev_desc, const char *name,
 	}
 
 	return -1;
-}
-
-int part_get_info_by_name(struct blk_desc *dev_desc, const char *name,
-			  disk_partition_t *info)
-{
-	return part_get_info_by_name_type(dev_desc, name, info, PART_TYPE_ALL);
 }
 
 void part_set_generic_name(const struct blk_desc *dev_desc,

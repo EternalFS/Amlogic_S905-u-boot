@@ -1,11 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2015 Marek Vasut <marex@denx.de>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 #ifndef __CONFIG_SAMTEC_VINING_FPGA_H__
 #define __CONFIG_SAMTEC_VINING_FPGA_H__
 
 #include <asm/arch/base_addr_ac5.h>
+
+#define CONFIG_HW_WATCHDOG
 
 /* Memory configurations */
 #define PHYS_SDRAM_1_SIZE		0x40000000	/* 1GiB on VINING_FPGA */
@@ -16,13 +19,31 @@
 #define CONFIG_LOADADDR		0x01000000
 #define CONFIG_SYS_LOAD_ADDR	CONFIG_LOADADDR
 
+/* I2C EEPROM */
+#ifdef CONFIG_CMD_EEPROM
+#define CONFIG_SYS_I2C_EEPROM_ADDR		0x50
+#define CONFIG_SYS_I2C_EEPROM_ADDR_LEN		1
+#define CONFIG_SYS_I2C_EEPROM_BUS		0
+#define CONFIG_SYS_EEPROM_PAGE_WRITE_BITS	3
+#define CONFIG_SYS_EEPROM_PAGE_WRITE_DELAY_MS	70
+#endif
+
+/*
+ * Status LEDs:
+ *   0 ... Top Green
+ *   1 ... Top Red
+ *   2 ... Bottom Green
+ *   3 ... Bottom Red
+ */
+
 /* Ethernet on SoC (EMAC) */
 #if defined(CONFIG_CMD_NET)
 #define CONFIG_BOOTP_SEND_HOSTNAME
+/* PHY */
 #endif
 
 /* Extra Environment */
-#define CONFIG_HOSTNAME			"socfpga_vining_fpga"
+#define CONFIG_HOSTNAME			socfpga_vining_fpga
 
 /*
  * Active LOW GPIO buttons:
@@ -146,12 +167,23 @@
 		"else echo \"Unsupported boot mode: \"${bootmode} ; "	\
 		"fi\0"							\
 
+#define MTDPARTS_DEFAULT			\
+	"mtdparts=ff705000.spi.0:"		\
+		"1m(u-boot),"			\
+		"64k(env1),"			\
+		"64k(env2),"			\
+		"256k(samtec1),"		\
+		"256k(samtec2),"		\
+		"-(rcvrfs);"	/* Recovery */	\
+
 #define CONFIG_SYS_REDUNDAND_ENVIRONMENT
 #define CONFIG_ENV_SIZE_REDUND		CONFIG_ENV_SIZE
 #define CONFIG_ENV_SECT_SIZE		(64 * 1024)
 #define CONFIG_ENV_OFFSET		0x100000
 #define CONFIG_ENV_OFFSET_REDUND	\
 	(CONFIG_ENV_OFFSET + CONFIG_ENV_SECT_SIZE)
+
+#define CONFIG_MISC_INIT_R
 
 /* Support changing the prompt string */
 #define CONFIG_CMDLINE_PS_SUPPORT

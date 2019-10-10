@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /**
  * core.h - DesignWare USB3 DRD Core Header
  *
@@ -11,6 +10,8 @@
  * to uboot.
  *
  * commit 460d098cb6 : usb: dwc3: make HIRD threshold configurable
+ *
+ * SPDX-License-Identifier:     GPL-2.0
  *
  */
 
@@ -73,6 +74,7 @@
 #define DWC3_GCTL		0xc110
 #define DWC3_GEVTEN		0xc114
 #define DWC3_GSTS		0xc118
+#define DWC3_GUCTL1		0xc11c
 #define DWC3_GSNPSID		0xc120
 #define DWC3_GGPIO		0xc124
 #define DWC3_GUID		0xc128
@@ -161,7 +163,17 @@
 
 /* Global USB2 PHY Configuration Register */
 #define DWC3_GUSB2PHYCFG_PHYSOFTRST	(1 << 31)
+#define DWC3_GUSB2PHYCFG_ENBLSLPM   (1 << 8)
 #define DWC3_GUSB2PHYCFG_SUSPHY		(1 << 6)
+#define DWC3_GUSB2PHYCFG_PHYIF_8BIT	(0 << 3)
+#define DWC3_GUSB2PHYCFG_PHYIF_16BIT	(1 << 3)
+#define DWC3_GUSB2PHYCFG_USBTRDTIM_SHIFT	(10)
+#define DWC3_GUSB2PHYCFG_USBTRDTIM_MASK	(0xf << \
+		DWC3_GUSB2PHYCFG_USBTRDTIM_SHIFT)
+#define DWC3_GUSB2PHYCFG_USBTRDTIM_16BIT (0x5 << \
+		DWC3_GUSB2PHYCFG_USBTRDTIM_SHIFT)
+#define DWC3_GUSB2PHYCFG_USBTRDTIM_8BIT (0x9 << \
+		DWC3_GUSB2PHYCFG_USBTRDTIM_SHIFT)
 
 /* Global USB3 PIPE Control Register */
 #define DWC3_GUSB3PIPECTL_PHYSOFTRST	(1 << 31)
@@ -712,11 +724,7 @@ struct dwc3 {
 	/* device lock */
 	spinlock_t		lock;
 
-#if defined(__UBOOT__) && CONFIG_IS_ENABLED(DM_USB)
-	struct udevice		*dev;
-#else
 	struct device		*dev;
-#endif
 
 	struct platform_device	*xhci;
 	struct resource		xhci_resources[DWC3_XHCI_RESOURCES_NUM];
@@ -816,6 +824,7 @@ struct dwc3 {
 
 	unsigned		tx_de_emphasis_quirk:1;
 	unsigned		tx_de_emphasis:2;
+	unsigned		usb2_phyif_utmi_width:5;
 	int			index;
 	struct list_head        list;
 };
@@ -991,8 +1000,6 @@ struct dwc3_gadget_ep_cmd_params {
 
 /* prototypes */
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc);
-int dwc3_init(struct dwc3 *dwc);
-void dwc3_remove(struct dwc3 *dwc);
 
 #ifdef CONFIG_USB_DWC3_HOST
 int dwc3_host_init(struct dwc3 *dwc);

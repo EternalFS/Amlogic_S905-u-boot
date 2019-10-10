@@ -1,18 +1,19 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2007
  * Gerald Van Baren, Custom IDEAS, vanbaren@cideas.com
  *
  * Copyright 2010-2011 Freescale Semiconductor, Inc.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
-#include <mapmem.h>
+#include <inttypes.h>
 #include <stdio_dev.h>
 #include <linux/ctype.h>
 #include <linux/types.h>
 #include <asm/global_data.h>
-#include <linux/libfdt.h>
+#include <libfdt.h>
 #include <fdt_support.h>
 #include <exports.h>
 #include <fdtdec.h>
@@ -273,8 +274,13 @@ int fdt_initrd(void *fdt, ulong initrd_start, ulong initrd_end)
 
 int fdt_chosen(void *fdt)
 {
+	/*
+	 * "bootargs_ext" is used when dtbo is applied.
+	 */
+	const char *arr_bootargs[] = { "bootargs", "bootargs_ext" };
 	int   nodeoffset;
 	int   err;
+	int   i;
 	char  *str;		/* used to set string properties */
 
 	err = fdt_check_header(fdt);
@@ -290,6 +296,36 @@ int fdt_chosen(void *fdt)
 
 	str = env_get("bootargs");
 	if (str) {
+#ifdef CONFIG_ARCH_ROCKCHIP
+		const char *bootargs;
+
+		debug("uboot bootargs: %s\n\n", str);
+		for (i = 0; i < ARRAY_SIZE(arr_bootargs); i++) {
+			bootargs = fdt_getprop(fdt, nodeoffset,
+					       arr_bootargs[i], NULL);
+			if (bootargs) {
+				debug("kernel %s: %s\n\n", arr_bootargs[i], bootargs);
+				/*
+				 * Append kernel bootargs
+				 * If use AB system, delete default "root=" which route
+				 * to rootfs. Then the ab bootctl will choose the
+				 * high priority system to boot and add its UUID
+				 * to cmdline. The format is "roo=PARTUUID=xxxx...".
+				 */
+#ifdef CONFIG_ANDROID_AB
+				env_update_filter("bootargs", bootargs, "root=");
+#else
+				/*
+				 * Initrd fixup: remove unused "initrd=0x...,0x...",
+				 * this for compatible with legacy parameter.txt
+				 */
+				env_update_filter("bootargs", bootargs, "initrd=");
+#endif
+			}
+#endif
+		}
+
+		str = env_get("bootargs");
 		err = fdt_setprop(fdt, nodeoffset, "bootargs", str,
 				  strlen(str) + 1);
 		if (err < 0) {
@@ -298,6 +334,8 @@ int fdt_chosen(void *fdt)
 			return err;
 		}
 	}
+
+	debug("merged bootargs: %s\n\n", env_get("bootargs"));
 
 	return fdt_fixup_stdout(fdt, nodeoffset);
 }
@@ -409,7 +447,46 @@ static int fdt_pack_reg(const void *fdt, void *buf, u64 *address, u64 *size,
 	return p - (char *)buf;
 }
 
-#if CONFIG_NR_DRAM_BANKS > 4
+int fdt_record_loadable(void *blob, u32 index, const char *name,
+			uintptr_t load_addr, u32 size, uintptr_t entry_point,
+			const char *type, const char *os)
+{
+	int err, node;
+
+	err = fdt_check_header(blob);
+	if (err < 0) {
+		printf("%s: %s\n", __func__, fdt_strerror(err));
+		return err;
+	}
+
+	/* find or create "/fit-images" node */
+	node = fdt_find_or_add_subnode(blob, 0, "fit-images");
+	if (node < 0)
+			return node;
+
+	/* find or create "/fit-images/<name>" node */
+	node = fdt_find_or_add_subnode(blob, node, name);
+	if (node < 0)
+		return node;
+
+	/*
+	 * We record these as 32bit entities, possibly truncating addresses.
+	 * However, spl_fit.c is not 64bit safe either: i.e. we should not
+	 * have an issue here.
+	 */
+	fdt_setprop_u32(blob, node, "load-addr", load_addr);
+	if (entry_point != -1)
+		fdt_setprop_u32(blob, node, "entry-point", entry_point);
+	fdt_setprop_u32(blob, node, "size", size);
+	if (type)
+		fdt_setprop_string(blob, node, "type", type);
+	if (os)
+		fdt_setprop_string(blob, node, "os", os);
+
+	return node;
+}
+
+#ifdef CONFIG_NR_DRAM_BANKS
 #define MEMORY_BANKS_MAX CONFIG_NR_DRAM_BANKS
 #else
 #define MEMORY_BANKS_MAX 4
@@ -417,7 +494,7 @@ static int fdt_pack_reg(const void *fdt, void *buf, u64 *address, u64 *size,
 int fdt_fixup_memory_banks(void *blob, u64 start[], u64 size[], int banks)
 {
 	int err, nodeoffset;
-	int len, i;
+	int len;
 	u8 tmp[MEMORY_BANKS_MAX * 16]; /* Up to 64-bit address + 64-bit size */
 
 	if (banks > MEMORY_BANKS_MAX) {
@@ -446,13 +523,6 @@ int fdt_fixup_memory_banks(void *blob, u64 start[], u64 size[], int banks)
 		return err;
 	}
 
-	for (i = 0; i < banks; i++) {
-		if (start[i] == 0 && size[i] == 0)
-			break;
-	}
-
-	banks = i;
-
 	if (!banks)
 		return 0;
 
@@ -471,6 +541,36 @@ int fdt_fixup_memory_banks(void *blob, u64 start[], u64 size[], int banks)
 int fdt_fixup_memory(void *blob, u64 start, u64 size)
 {
 	return fdt_fixup_memory_banks(blob, &start, &size, 1);
+}
+
+int fdt_update_reserved_memory(void *blob, char *name, u64 start, u64 size)
+{
+	int nodeoffset, len, err;
+	u8 tmp[16]; /* Up to 64-bit address + 64-bit size */
+
+#if 0
+	/*name is rockchip_logo*/
+	nodeoffset = fdt_find_or_add_subnode(blob, 0, "reserved-memory");
+	if (nodeoffset < 0)
+		return nodeoffset;
+	printf("hjc>>reserved-memory>>%s, nodeoffset:%d\n", __func__, nodeoffset);
+	nodeoffset = fdt_find_or_add_subnode(blob, nodeoffset, name);
+	if (nodeoffset < 0)
+		return nodeoffset;
+#else
+	nodeoffset = fdt_node_offset_by_compatible(blob, 0, name);
+	if (nodeoffset < 0)
+		debug("Can't find nodeoffset: %d\n", nodeoffset);
+#endif
+	len = fdt_pack_reg(blob, tmp, &start, &size, 1);
+	err = fdt_setprop(blob, nodeoffset, "reg", tmp, len);
+	if (err < 0) {
+		printf("WARNING: could not set %s %s.\n",
+				"reg", fdt_strerror(err));
+		return err;
+	}
+
+	return nodeoffset;
 }
 
 void fdt_fixup_ethernet(void *fdt)
@@ -551,45 +651,6 @@ void fdt_fixup_ethernet(void *fdt)
 	}
 }
 
-int fdt_record_loadable(void *blob, u32 index, const char *name,
-			uintptr_t load_addr, u32 size, uintptr_t entry_point,
-			const char *type, const char *os)
-{
-	int err, node;
-
-	err = fdt_check_header(blob);
-	if (err < 0) {
-		printf("%s: %s\n", __func__, fdt_strerror(err));
-		return err;
-	}
-
-	/* find or create "/fit-images" node */
-	node = fdt_find_or_add_subnode(blob, 0, "fit-images");
-	if (node < 0)
-		return node;
-
-	/* find or create "/fit-images/<name>" node */
-	node = fdt_find_or_add_subnode(blob, node, name);
-	if (node < 0)
-		return node;
-
-	/*
-	 * We record these as 32bit entities, possibly truncating addresses.
-	 * However, spl_fit.c is not 64bit safe either: i.e. we should not
-	 * have an issue here.
-	 */
-	fdt_setprop_u32(blob, node, "load-addr", load_addr);
-	if (entry_point != -1)
-		fdt_setprop_u32(blob, node, "entry-point", entry_point);
-	fdt_setprop_u32(blob, node, "size", size);
-	if (type)
-		fdt_setprop_string(blob, node, "type", type);
-	if (os)
-		fdt_setprop_string(blob, node, "os", os);
-
-	return node;
-}
-
 /* Resize the fdt to its actual size + a bit of padding */
 int fdt_shrink_to_minimum(void *blob, uint extrasize)
 {
@@ -597,7 +658,6 @@ int fdt_shrink_to_minimum(void *blob, uint extrasize)
 	uint64_t addr, size;
 	int total, ret;
 	uint actualsize;
-	int fdt_memrsv = 0;
 
 	if (!blob)
 		return 0;
@@ -607,7 +667,6 @@ int fdt_shrink_to_minimum(void *blob, uint extrasize)
 		fdt_get_mem_rsv(blob, i, &addr, &size);
 		if (addr == (uintptr_t)blob) {
 			fdt_del_mem_rsv(blob, i);
-			fdt_memrsv = 1;
 			break;
 		}
 	}
@@ -629,12 +688,10 @@ int fdt_shrink_to_minimum(void *blob, uint extrasize)
 	/* Change the fdt header to reflect the correct size */
 	fdt_set_totalsize(blob, actualsize);
 
-	if (fdt_memrsv) {
-		/* Add the new reservation */
-		ret = fdt_add_mem_rsv(blob, map_to_sysmem(blob), actualsize);
-		if (ret < 0)
-			return ret;
-	}
+	/* Add the new reservation */
+	ret = fdt_add_mem_rsv(blob, (uintptr_t)blob, actualsize);
+	if (ret < 0)
+		return ret;
 
 	return actualsize;
 }
@@ -722,7 +779,12 @@ int fdt_increase_size(void *fdt, int add_len)
 #include <jffs2/load_kernel.h>
 #include <mtd_node.h>
 
-static int fdt_del_subnodes(const void *blob, int parent_offset)
+struct reg_cell {
+	unsigned int r0;
+	unsigned int r1;
+};
+
+int fdt_del_subnodes(const void *blob, int parent_offset)
 {
 	int off, ndepth;
 	int ret;
@@ -747,7 +809,7 @@ static int fdt_del_subnodes(const void *blob, int parent_offset)
 	return 0;
 }
 
-static int fdt_del_partitions(void *blob, int parent_offset)
+int fdt_del_partitions(void *blob, int parent_offset)
 {
 	const void *prop;
 	int ndepth = 0;
@@ -780,21 +842,14 @@ int fdt_node_set_part_info(void *blob, int parent_offset,
 {
 	struct list_head *pentry;
 	struct part_info *part;
+	struct reg_cell cell;
 	int off, ndepth = 0;
 	int part_num, ret;
-	int sizecell;
 	char buf[64];
 
 	ret = fdt_del_partitions(blob, parent_offset);
 	if (ret < 0)
 		return ret;
-
-	/*
-	 * Check if size/address is 1 or 2 cells.
-	 * We assume #address-cells and #size-cells have same value.
-	 */
-	sizecell = fdt_getprop_u32_default_node(blob, parent_offset,
-						0, "#size-cells", 1);
 
 	/*
 	 * Check if it is nand {}; subnode, adjust
@@ -844,21 +899,10 @@ add_ro:
 				goto err_prop;
 		}
 
+		cell.r0 = cpu_to_fdt32(part->offset);
+		cell.r1 = cpu_to_fdt32(part->size);
 add_reg:
-		if (sizecell == 2) {
-			ret = fdt_setprop_u64(blob, newoff,
-					      "reg", part->offset);
-			if (!ret)
-				ret = fdt_appendprop_u64(blob, newoff,
-							 "reg", part->size);
-		} else {
-			ret = fdt_setprop_u32(blob, newoff,
-					      "reg", part->offset);
-			if (!ret)
-				ret = fdt_appendprop_u32(blob, newoff,
-							 "reg", part->size);
-		}
-
+		ret = fdt_setprop(blob, newoff, "reg", &cell, sizeof(cell));
 		if (ret == -FDT_ERR_NOSPACE) {
 			ret = fdt_increase_size(blob, 512);
 			if (!ret)
@@ -904,9 +948,9 @@ err_prop:
  *
  *	fdt_fixup_mtdparts(blob, nodes, ARRAY_SIZE(nodes));
  */
-void fdt_fixup_mtdparts(void *blob, const struct node_info *node_info,
-			int node_info_size)
+void fdt_fixup_mtdparts(void *blob, void *node_info, int node_info_size)
 {
+	struct node_info *ni = node_info;
 	struct mtd_device *dev;
 	int i, idx;
 	int noff;
@@ -916,13 +960,12 @@ void fdt_fixup_mtdparts(void *blob, const struct node_info *node_info,
 
 	for (i = 0; i < node_info_size; i++) {
 		idx = 0;
-		noff = fdt_node_offset_by_compatible(blob, -1,
-						     node_info[i].compat);
+		noff = fdt_node_offset_by_compatible(blob, -1, ni[i].compat);
 		while (noff != -FDT_ERR_NOTFOUND) {
 			debug("%s: %s, mtd dev type %d\n",
 				fdt_get_name(blob, noff, 0),
-				node_info[i].compat, node_info[i].type);
-			dev = device_find(node_info[i].type, idx++);
+				ni[i].compat, ni[i].type);
+			dev = device_find(ni[i].type, idx++);
 			if (dev) {
 				if (fdt_node_set_part_info(blob, noff, dev))
 					return; /* return on error */
@@ -930,7 +973,7 @@ void fdt_fixup_mtdparts(void *blob, const struct node_info *node_info,
 
 			/* Jump to next flash node */
 			noff = fdt_node_offset_by_compatible(blob, noff,
-							     node_info[i].compat);
+							     ni[i].compat);
 		}
 	}
 }
@@ -1036,7 +1079,8 @@ static u64 of_bus_default_map(fdt32_t *addr, const fdt32_t *range,
 	s  = fdt_read_number(range + na + pna, ns);
 	da = fdt_read_number(addr, na);
 
-	debug("OF: default map, cp=%llx, s=%llx, da=%llx\n", cp, s, da);
+	debug("OF: default map, cp=%" PRIu64 ", s=%" PRIu64
+	      ", da=%" PRIu64 "\n", cp, s, da);
 
 	if (da < cp || da >= (cp + s))
 		return OF_BAD_ADDR;
@@ -1091,7 +1135,8 @@ static u64 of_bus_isa_map(fdt32_t *addr, const fdt32_t *range,
 	s  = fdt_read_number(range + na + pna, ns);
 	da = fdt_read_number(addr + 1, na - 1);
 
-	debug("OF: ISA map, cp=%llx, s=%llx, da=%llx\n", cp, s, da);
+	debug("OF: ISA map, cp=%" PRIu64 ", s=%" PRIu64
+	      ", da=%" PRIu64 "\n", cp, s, da);
 
 	if (da < cp || da >= (cp + s))
 		return OF_BAD_ADDR;
@@ -1197,7 +1242,7 @@ static int of_translate_one(const void *blob, int parent, struct of_bus *bus,
 
  finish:
 	of_dump_addr("OF: parent translation for:", addr, pna);
-	debug("OF: with offset: %llu\n", offset);
+	debug("OF: with offset: %" PRIu64 "\n", offset);
 
 	/* Translate it into parent bus space */
 	return pbus->translate(addr, offset, pna);
@@ -1527,9 +1572,9 @@ int fdt_verify_alias_address(void *fdt, int anode, const char *alias, u64 addr)
 
 	dt_addr = fdt_translate_address(fdt, node, reg);
 	if (addr != dt_addr) {
-		printf("Warning: U-Boot configured device %s at address %llu,\n"
-		       "but the device tree has it address %llx.\n",
-		       alias, addr, dt_addr);
+		printf("Warning: U-Boot configured device %s at address %"
+		       PRIx64 ",\n but the device tree has it address %"
+		       PRIx64 ".\n", alias, addr, dt_addr);
 		return 0;
 	}
 
@@ -1677,7 +1722,7 @@ int fdt_setup_simplefb_node(void *fdt, int node, u64 base_address, u32 width,
 	if (ret < 0)
 		return ret;
 
-	snprintf(name, sizeof(name), "framebuffer@%llx", base_address);
+	snprintf(name, sizeof(name), "framebuffer@%" PRIx64, base_address);
 	ret = fdt_set_name(fdt, node, name);
 	if (ret < 0)
 		return ret;

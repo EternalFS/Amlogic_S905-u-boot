@@ -1,9 +1,10 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Header providing constants for Rockchip pinctrl bindings.
  *
  * Copyright (c) 2013 MundoReader S.L.
  * Author: Heiko Stuebner <heiko@sntech.de>
+ *
+ * SPDX-License-Identifier:    GPL-2.0+
  */
 
 #ifndef __DT_BINDINGS_ROCKCHIP_PINCTRL_H__

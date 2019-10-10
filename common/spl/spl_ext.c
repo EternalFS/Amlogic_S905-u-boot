@@ -1,4 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0+
+/*
+ * SPDX-License-Identifier:	GPL-2.0+
+ */
 
 #include <common.h>
 #include <spl.h>
@@ -16,7 +18,8 @@ int spl_load_image_ext(struct spl_image_info *spl_image,
 	loff_t filelen, actlen;
 	disk_partition_t part_info = {};
 
-	header = spl_get_load_buffer(-sizeof(*header), sizeof(*header));
+	header = (struct image_header *)(CONFIG_SYS_TEXT_BASE -
+						sizeof(struct image_header));
 
 	if (part_get_info(block_dev, partition, &part_info)) {
 		printf("spl: no partition table found\n");

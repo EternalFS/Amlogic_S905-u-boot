@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Command for accessing SPI flash.
  *
  * Copyright (C) 2008 Atmel Corporation
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -81,13 +82,14 @@ static int do_spi_flash_probe(int argc, char * const argv[])
 {
 	unsigned int bus = CONFIG_SF_DEFAULT_BUS;
 	unsigned int cs = CONFIG_SF_DEFAULT_CS;
-	/* In DM mode, defaults speed and mode will be taken from DT */
 	unsigned int speed = CONFIG_SF_DEFAULT_SPEED;
 	unsigned int mode = CONFIG_SF_DEFAULT_MODE;
 	char *endp;
 #ifdef CONFIG_DM_SPI_FLASH
 	struct udevice *new, *bus_dev;
 	int ret;
+	/* In DM mode defaults will be taken from DT */
+	speed = 0, mode = 0;
 #else
 	struct spi_flash *new;
 #endif
@@ -285,7 +287,7 @@ static int do_spi_flash_read_write(int argc, char * const argv[])
 	}
 
 	buf = map_physmem(addr, len, MAP_WRBACK);
-	if (!buf && addr) {
+	if (!buf) {
 		puts("Failed to map physical memory\n");
 		return 1;
 	}
@@ -412,7 +414,7 @@ static void show_time(struct test_info *test, int stage)
 		do_div(speed, test->time_ms[stage] * 1024);
 	bps = speed * 8;
 
-	printf("%d %s: %u ticks, %d KiB/s %d.%03d Mbps\n", stage,
+	printf("%d %s: %d ticks, %d KiB/s %d.%03d Mbps\n", stage,
 	       stage_name[stage], test->time_ms[stage],
 	       (int)speed, bps / 1000, bps % 1000);
 }
@@ -440,12 +442,15 @@ static int spi_flash_test(struct spi_flash *flash, uint8_t *buf, ulong len,
 {
 	struct test_info test;
 	int i;
+	int erase_len;
 
 	printf("SPI flash test:\n");
 	memset(&test, '\0', sizeof(test));
 	test.base_ms = get_timer(0);
 	test.bytes = len;
-	if (spi_flash_erase(flash, offset, len)) {
+
+	erase_len = roundup(len, 4096);
+	if (spi_flash_erase(flash, offset, erase_len)) {
 		printf("Erase failed\n");
 		return -1;
 	}
@@ -504,6 +509,8 @@ static int do_spi_flash_test(int argc, char * const argv[])
 	char *endp;
 	uint8_t *vbuf;
 	int ret;
+	int count;
+	int i;
 
 	if (argc < 3)
 		return -1;
@@ -513,6 +520,10 @@ static int do_spi_flash_test(int argc, char * const argv[])
 	len = simple_strtoul(argv[2], &endp, 16);
 	if (*argv[2] == 0 || *endp != 0)
 		return -1;
+
+	count = simple_strtoul(argv[3], &endp, 10);
+	if (!count)
+		count = 1;
 
 	vbuf = memalign(ARCH_DMA_MINALIGN, len);
 	if (!vbuf) {
@@ -528,7 +539,13 @@ static int do_spi_flash_test(int argc, char * const argv[])
 
 	from = map_sysmem(CONFIG_SYS_TEXT_BASE, 0);
 	memcpy(buf, from, len);
-	ret = spi_flash_test(flash, buf, len, offset, vbuf);
+	for (i = 0; i < count; i++) {
+		ret = spi_flash_test(flash, buf, len, offset, vbuf);
+		if (ret < 0) {
+			printf("Test Failed, passed count:%d\n", i);
+			break;
+		}
+	}
 	free(vbuf);
 	free(buf);
 	if (ret) {

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000-2013
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
@@ -7,6 +6,8 @@
  * Andreas Heppel <aheppel@sysgo.de>
  *
  * Copyright 2011 Freescale Semiconductor, Inc.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -119,11 +120,6 @@ static int do_env_print(cmd_tbl_t *cmdtp, int flag, int argc,
 	int rcode = 0;
 	int env_flag = H_HIDE_DOT;
 
-#if defined(CONFIG_CMD_NVEDIT_EFI)
-	if (argc > 1 && argv[1][0] == '-' && argv[1][1] == 'e')
-		return do_env_print_efi(cmdtp, flag, --argc, ++argv);
-#endif
-
 	if (argc > 1 && argv[1][0] == '-' && argv[1][1] == 'a') {
 		argc--;
 		argv++;
@@ -221,12 +217,6 @@ static int _do_env_set(int flag, int argc, char * const argv[], int env_flag)
 	ENTRY e, *ep;
 
 	debug("Initial value for argc=%d\n", argc);
-
-#if CONFIG_IS_ENABLED(CMD_NVEDIT_EFI)
-	if (argc > 1 && argv[1][0] == '-' && argv[1][1] == 'e')
-		return do_env_set_efi(NULL, flag, --argc, ++argv);
-#endif
-
 	while (argc > 1 && **(argv + 1) == '-') {
 		char *arg = *++argv;
 
@@ -306,6 +296,344 @@ int env_set(const char *varname, const char *varvalue)
 		return _do_env_set(0, 3, (char * const *)argv, H_PROGRAMMATIC);
 }
 
+static int env_append(const char *varname, const char *varvalue)
+{
+	int len = 0;
+	char *oldvalue, *newvalue;
+
+	debug("%s: varvalue = %s\n", __func__, varvalue);
+
+	/* before import into hashtable */
+	if (!(gd->flags & GD_FLG_ENV_READY) || !varname)
+		return 1;
+
+	if (env_exist(varname, varvalue))
+		return 0;
+
+	debug("%s: reall append: %s\n", __func__, varvalue);
+
+	if (varvalue)
+		len += strlen(varvalue);
+
+	oldvalue = env_get(varname);
+	if (oldvalue)
+		len += strlen(oldvalue);
+
+	newvalue = malloc(len + 2);
+	if (!newvalue) {
+		printf("Error: malloc in %s failed!\n", __func__);
+		return 1;
+	}
+
+	*newvalue = '\0';
+
+	if (oldvalue) {
+		strcpy(newvalue, oldvalue);
+		strcat(newvalue, " ");
+	}
+
+	if (varvalue)
+		strcat(newvalue, varvalue);
+
+	debug("%s: newvalue: %s\n", __func__, newvalue);
+	env_set(varname, newvalue);
+	free(newvalue);
+
+	return 0;
+}
+
+static int env_replace(const char *varname, const char *substr,
+		       const char *replacement)
+{
+	char *oldvalue, *newvalue, *dst, *sub;
+	int substr_len, replace_len, oldvalue_len, len;
+
+	/* before import into hashtable */
+	if (!(gd->flags & GD_FLG_ENV_READY) || !varname)
+		return 1;
+
+	oldvalue = env_get(varname);
+	if (!oldvalue)
+		return 1;
+
+	sub = strstr(oldvalue, substr);
+	if (!sub)
+		return 1;
+
+	oldvalue_len = strlen(oldvalue) + 1;
+	substr_len = strlen(substr);
+	replace_len = strlen(replacement);
+
+	if (replace_len >= substr_len)
+		len = oldvalue_len + replace_len - substr_len;
+	else
+		len = oldvalue_len + substr_len - replace_len;
+
+	newvalue = malloc(len);
+	if (!newvalue) {
+		printf("Error: malloc in %s failed!\n", __func__);
+		return 1;
+	}
+
+	*newvalue = '\0';
+
+	/*
+	 * Orignal string is splited like format: [str1.. substr str2..]
+	 */
+
+	/* str1.. */
+	dst = newvalue;
+	dst = strncat(dst, oldvalue, sub - oldvalue);
+
+	/* substr */
+	dst += sub - oldvalue;
+	dst = strncat(dst, replacement, replace_len);
+
+	/* str2.. */
+	dst += replace_len;
+	len = oldvalue_len - substr_len - (sub - oldvalue);
+	dst = strncat(dst, sub + substr_len, len);
+
+	env_set(varname, newvalue);
+	free(newvalue);
+
+	return 0;
+}
+
+#define ARGS_ITEM_NUM	50
+
+int env_update_filter(const char *varname, const char *varvalue,
+		      const char *ignore)
+{
+	/* 'a_' means "varargs_'; 'v_' means 'varvalue_' */
+	char *varargs;
+	char *a_title, *v_title;
+	char *a_string_tok, *a_item_tok = NULL;
+	char *v_string_tok, *v_item_tok = NULL;
+	char *a_item, *a_items[ARGS_ITEM_NUM] = { NULL };
+	char *v_item, *v_items[ARGS_ITEM_NUM] = { NULL };
+	bool match = false;
+	int i = 0, j = 0;
+
+	/* Before import into hashtable */
+	if (!(gd->flags & GD_FLG_ENV_READY) || !varname)
+		return 1;
+
+	/* If varname doesn't exist, create it and set varvalue */
+	varargs = env_get(varname);
+	if (!varargs) {
+		env_set(varname, varvalue);
+		if (ignore && strstr(varvalue, ignore))
+			env_delete(varname, ignore, 0);
+		return 0;
+	}
+
+	/* Malloc a temporary varargs for strtok */
+	a_string_tok = strdup(varargs);
+	if (!a_string_tok) {
+		printf("Error: strdup in failed, line=%d\n", __LINE__);
+		return 1;
+	}
+
+	/* Malloc a temporary varvalue for strtok */
+	v_string_tok = strdup(varvalue);
+	if (!v_string_tok) {
+		free(a_string_tok);
+		printf("Error: strdup in failed, line=%d\n", __LINE__);
+		return 1;
+	}
+
+	/* Splite varargs into items containing "=" by the blank */
+	a_item = strtok(a_string_tok, " ");
+	while (a_item && i < ARGS_ITEM_NUM) {
+		debug("%s: [a_item %d]: %s\n", __func__, i, a_item);
+		if (strstr(a_item, "="))
+			a_items[i++] = a_item;
+		a_item = strtok(NULL, " ");
+	}
+
+	/*
+	 * Splite varvalue into items containing "=" by the blank.
+	 * parse varvalue title, eg: "bootmode=emmc", title is "bootmode"
+	 */
+	v_item = strtok(v_string_tok, " ");
+	while (v_item && j < ARGS_ITEM_NUM) {
+		debug("%s: <v_item %d>: %s ", __func__, j, v_item);
+
+		/* filter ignore string */
+		if (ignore && strstr(v_item, ignore)) {
+			v_item = strtok(NULL, " ");
+			debug("...ignore\n");
+			continue;
+		}
+
+		if (strstr(v_item, "=")) {
+			debug("\n");
+			v_items[j++] = v_item;
+		} else {
+			debug("... do append\n");
+			env_append(varname, v_item);
+		}
+
+		v_item = strtok(NULL, " ");
+	}
+
+	/* For every v_item, search its title */
+	for (j = 0; j < ARGS_ITEM_NUM && v_items[j]; j++) {
+		v_item = v_items[j];
+		/* Malloc a temporary a_item for strtok */
+		v_item_tok = strdup(v_item);
+		if (!v_item_tok) {
+			printf("Error: strdup in failed, line=%d\n", __LINE__);
+			free(a_string_tok);
+			free(v_string_tok);
+			return 1;
+		}
+		v_title = strtok(v_item_tok, "=");
+		debug("%s: <v_title>: %s\n", __func__, v_title);
+
+		/* For every a_item, search its title */
+		for (i = 0; i < ARGS_ITEM_NUM && a_items[i]; i++) {
+			a_item = a_items[i];
+			/* Malloc a temporary a_item for strtok */
+			a_item_tok = strdup(a_item);
+			if (!a_item_tok) {
+				printf("Error: strdup in failed, line=%d\n", __LINE__);
+				free(a_string_tok);
+				free(v_string_tok);
+				free(v_item_tok);
+				return 1;
+			}
+
+			a_title = strtok(a_item_tok, "=");
+			debug("%s: [a_title]: %s\n", __func__, a_title);
+			if (!strcmp(a_title, v_title)) {
+				/* Find! replace it */
+				env_replace(varname, a_item, v_item);
+				free(a_item_tok);
+				match = true;
+				break;
+			}
+			free(a_item_tok);
+		}
+
+		/* Not find, just append */
+		if (!match) {
+			debug("%s: append '%s' to the '%s' end\n",
+			      __func__, v_item, varname);
+			env_append(varname, v_item);
+		}
+		match = false;
+		free(v_item_tok);
+	}
+
+	free(v_string_tok);
+	free(a_string_tok);
+
+	return 0;
+}
+
+int env_update(const char *varname, const char *varvalue)
+{
+	return env_update_filter(varname, varvalue, NULL);
+}
+
+#define VARVALUE_BUF_SIZE	512
+
+char *env_exist(const char *varname, const char *varvalue)
+{
+	int len;
+	char *oldvalue, *p;
+	char buf[VARVALUE_BUF_SIZE];
+
+	/* before import into hashtable */
+	if (!(gd->flags & GD_FLG_ENV_READY) || !varname)
+		return NULL;
+
+	oldvalue = env_get(varname);
+	if (oldvalue) {
+		if (strlen(varvalue) > VARVALUE_BUF_SIZE) {
+			printf("%s: '%s' is too long than 512\n",
+			       __func__, varvalue);
+			return NULL;
+		}
+
+		/* Match middle one ? */
+		snprintf(buf, VARVALUE_BUF_SIZE, " %s ", varvalue);
+		p = strstr(oldvalue, buf);
+		if (p) {
+			debug("%s: '%s' is already exist in '%s'(middle)\n",
+			      __func__, varvalue, varname);
+			return (p + 1);
+		} else {
+			debug("%s: not find in middle one\n", __func__);
+		}
+
+		/* Match last one ? */
+		snprintf(buf, VARVALUE_BUF_SIZE, " %s", varvalue);
+		p = strstr(oldvalue, buf);
+		if (p) {
+			if (*(p + strlen(varvalue) + 1) == '\0') {
+				debug("%s: '%s' is already exist in '%s'(last)\n",
+				      __func__, varvalue, varname);
+				return (p + 1);
+			}
+		} else {
+			debug("%s: not find in last one\n", __func__);
+		}
+
+		/* Match first one ? */
+		snprintf(buf, VARVALUE_BUF_SIZE, "%s ", varvalue);
+		p = strstr(oldvalue, buf);
+		if (p) {
+			len = strstr(p, " ") - oldvalue;
+			if (len == strlen(varvalue)) {
+				debug("%s: '%s' is already exist in '%s'(first)\n",
+				      __func__, varvalue, varname);
+				return p;
+			}
+		} else  {
+			debug("%s: not find in first one\n", __func__);
+		}
+	}
+
+	return NULL;
+}
+
+int env_delete(const char *varname, const char *varvalue, int complete_match)
+{
+	const char *str;
+	char *value, *start;
+
+	/* before import into hashtable */
+	if (!(gd->flags & GD_FLG_ENV_READY) || !varname)
+		return 1;
+
+	value = env_get(varname);
+	if (!value)
+		return 0;
+
+	start = complete_match ?
+		env_exist(varname, varvalue) : strstr(value, varvalue);
+	if (!start)
+		return 0;
+
+	/* varvalue is not the last property */
+	str = strstr(start, " ");
+	if (str) {
+		/* Terminate, so cmdline can be dest for strcat() */
+		*start = '\0';
+		/* +1 to skip white space */
+		strcat((char *)value, (str + 1));
+	/* varvalue is the last property */
+	} else {
+		/* skip white space */
+		*(start - 1) = '\0';
+	}
+
+	return 0;
+}
+
 /**
  * Set an environment variable to an integer value
  *
@@ -349,36 +677,6 @@ ulong env_get_hex(const char *varname, ulong default_val)
 		return default_val;
 
 	return value;
-}
-
-void eth_parse_enetaddr(const char *addr, uint8_t *enetaddr)
-{
-	char *end;
-	int i;
-
-	for (i = 0; i < 6; ++i) {
-		enetaddr[i] = addr ? simple_strtoul(addr, &end, 16) : 0;
-		if (addr)
-			addr = (*end) ? end + 1 : end;
-	}
-}
-
-int eth_env_get_enetaddr(const char *name, uint8_t *enetaddr)
-{
-	eth_parse_enetaddr(env_get(name), enetaddr);
-	return is_valid_ethaddr(enetaddr);
-}
-
-int eth_env_set_enetaddr(const char *name, const uint8_t *enetaddr)
-{
-	char buf[ARP_HLEN_ASCII + 1];
-
-	if (eth_env_get_enetaddr(name, (uint8_t *)buf))
-		return -EEXIST;
-
-	sprintf(buf, "%pM", enetaddr);
-
-	return env_set(name, buf);
 }
 
 #ifndef CONFIG_SPL_BUILD
@@ -690,14 +988,12 @@ char *env_get(const char *name)
  */
 int env_get_f(const char *name, char *buf, unsigned len)
 {
-	int i, nxt, c;
+	int i, nxt;
 
 	for (i = 0; env_get_char(i) != '\0'; i = nxt + 1) {
 		int val, n;
 
-		for (nxt = i; (c = env_get_char(nxt)) != '\0'; ++nxt) {
-			if (c < 0)
-				return c;
+		for (nxt = i; env_get_char(nxt) != '\0'; ++nxt) {
 			if (nxt >= CONFIG_ENV_SIZE)
 				return -1;
 		}
@@ -708,10 +1004,7 @@ int env_get_f(const char *name, char *buf, unsigned len)
 
 		/* found; copy out */
 		for (n = 0; n < len; ++n, ++buf) {
-			c = env_get_char(val++);
-			if (c < 0)
-				return c;
-			*buf = c;
+			*buf = env_get_char(val++);
 			if (*buf == '\0')
 				return n;
 		}
@@ -719,8 +1012,8 @@ int env_get_f(const char *name, char *buf, unsigned len)
 		if (n)
 			*--buf = '\0';
 
-		printf("env_buf [%u bytes] too small for value of \"%s\"\n",
-		       len, name);
+		printf("env_buf [%d bytes] too small for value of \"%s\"\n",
+			len, name);
 
 		return n;
 	}
@@ -731,7 +1024,7 @@ int env_get_f(const char *name, char *buf, unsigned len)
 /**
  * Decode the integer value of an environment variable and return it.
  *
- * @param name		Name of environment variable
+ * @param name		Name of environemnt variable
  * @param base		Number base to use (normally 10, or 16 for hex)
  * @param default_val	Default value to return if the variable is not
  *			found
@@ -753,6 +1046,10 @@ ulong env_get_ulong(const char *name, int base, ulong default_val)
 static int do_env_save(cmd_tbl_t *cmdtp, int flag, int argc,
 		       char * const argv[])
 {
+	struct env_driver *env = env_driver_lookup_default();
+
+	printf("Saving Environment to %s...\n", env->name);
+
 	return env_save() ? 1 : 0;
 }
 
@@ -788,10 +1085,10 @@ int envmatch(uchar *s1, int i2)
 }
 
 #ifndef CONFIG_SPL_BUILD
-static int do_env_default(cmd_tbl_t *cmdtp, int flag,
+static int do_env_default(cmd_tbl_t *cmdtp, int __flag,
 			  int argc, char * const argv[])
 {
-	int all = 0, env_flag = H_INTERACTIVE;
+	int all = 0, flag = 0;
 
 	debug("Initial value for argc=%d\n", argc);
 	while (--argc > 0 && **++argv == '-') {
@@ -803,7 +1100,7 @@ static int do_env_default(cmd_tbl_t *cmdtp, int flag,
 				all = 1;
 				break;
 			case 'f':		/* force */
-				env_flag |= H_FORCE;
+				flag |= H_FORCE;
 				break;
 			default:
 				return cmd_usage(cmdtp);
@@ -813,13 +1110,12 @@ static int do_env_default(cmd_tbl_t *cmdtp, int flag,
 	debug("Final value for argc=%d\n", argc);
 	if (all && (argc == 0)) {
 		/* Reset the whole environment */
-		set_default_env("## Resetting to default environment\n",
-				env_flag);
+		set_default_env("## Resetting to default environment\n");
 		return 0;
 	}
 	if (!all && (argc > 0)) {
 		/* Reset individual variables */
-		set_default_vars(argc, argv, env_flag);
+		set_default_vars(argc, argv);
 		return 0;
 	}
 
@@ -971,8 +1267,7 @@ NXTARG:		;
 				H_MATCH_KEY | H_MATCH_IDENT,
 				&ptr, size, argc, argv);
 		if (len < 0) {
-			pr_err("## Error: Cannot export environment: errno = %d\n",
-			       errno);
+			pr_err("Cannot export environment: errno = %d\n", errno);
 			return 1;
 		}
 		sprintf(buf, "%zX", (size_t)len);
@@ -992,14 +1287,12 @@ NXTARG:		;
 			H_MATCH_KEY | H_MATCH_IDENT,
 			&res, ENV_SIZE, argc, argv);
 	if (len < 0) {
-		pr_err("## Error: Cannot export environment: errno = %d\n",
-		       errno);
+		pr_err("Cannot export environment: errno = %d\n", errno);
 		return 1;
 	}
 
 	if (chk) {
-		envp->crc = crc32(0, envp->data,
-				size ? size - offsetof(env_t, data) : ENV_SIZE);
+		envp->crc = crc32(0, envp->data, ENV_SIZE);
 #ifdef CONFIG_ENV_ADDR_REDUND
 		envp->flags = ACTIVE_FLAG;
 #endif
@@ -1009,19 +1302,15 @@ NXTARG:		;
 	return 0;
 
 sep_err:
-	printf("## Error: %s: only one of \"-b\", \"-c\" or \"-t\" allowed\n",
-	       cmd);
+	printf("## %s: only one of \"-b\", \"-c\" or \"-t\" allowed\n",	cmd);
 	return 1;
 }
 #endif
 
 #ifdef CONFIG_CMD_IMPORTENV
 /*
- * env import [-d] [-t [-r] | -b | -c] addr [size] [var ...]
- *	-d:	delete existing environment before importing if no var is
- *		passed; if vars are passed, if one var is in the current
- *		environment but not in the environment at addr, delete var from
- *		current environment;
+ * env import [-d] [-t [-r] | -b | -c] addr [size]
+ *	-d:	delete existing environment before importing;
  *		otherwise overwrite / append to existing definitions
  *	-t:	assume text format; either "size" must be given or the
  *		text data must be '\0' terminated
@@ -1034,11 +1323,6 @@ sep_err:
  *	addr:	memory address to read from
  *	size:	length of input data; if missing, proper '\0'
  *		termination is mandatory
- *		if var is set and size should be missing (i.e. '\0'
- *		termination), set size to '-'
- *	var...	List of the names of the only variables that get imported from
- *		the environment at address 'addr'. Without arguments, the whole
- *		environment gets imported.
  */
 static int do_env_import(cmd_tbl_t *cmdtp, int flag,
 			 int argc, char * const argv[])
@@ -1050,7 +1334,6 @@ static int do_env_import(cmd_tbl_t *cmdtp, int flag,
 	int	fmt = 0;
 	int	del = 0;
 	int	crlf_is_lf = 0;
-	int	wl = 0;
 	size_t	size;
 
 	cmd = *argv;
@@ -1099,9 +1382,9 @@ static int do_env_import(cmd_tbl_t *cmdtp, int flag,
 	addr = simple_strtoul(argv[0], NULL, 16);
 	ptr = map_sysmem(addr, 0);
 
-	if (argc >= 2 && strcmp(argv[1], "-")) {
+	if (argc == 2) {
 		size = simple_strtoul(argv[1], NULL, 16);
-	} else if (chk) {
+	} else if (argc == 1 && chk) {
 		puts("## Error: external checksum format must pass size\n");
 		return CMD_RET_FAILURE;
 	} else {
@@ -1123,9 +1406,6 @@ static int do_env_import(cmd_tbl_t *cmdtp, int flag,
 		printf("## Info: input data size = %zu = 0x%zX\n", size, size);
 	}
 
-	if (argc > 2)
-		wl = 1;
-
 	if (chk) {
 		uint32_t crc;
 		env_t *ep = (env_t *)ptr;
@@ -1140,10 +1420,9 @@ static int do_env_import(cmd_tbl_t *cmdtp, int flag,
 		ptr = (char *)ep->data;
 	}
 
-	if (!himport_r(&env_htab, ptr, size, sep, del ? 0 : H_NOCLEAR,
-		       crlf_is_lf, wl ? argc - 2 : 0, wl ? &argv[2] : NULL)) {
-		pr_err("## Error: Environment import failed: errno = %d\n",
-		       errno);
+	if (himport_r(&env_htab, ptr, size, sep, del ? 0 : H_NOCLEAR,
+			crlf_is_lf, 0, NULL) == 0) {
+		pr_err("Environment import failed: errno = %d\n", errno);
 		return 1;
 	}
 	gd->flags |= GD_FLG_ENV_READY;
@@ -1271,20 +1550,14 @@ static char env_help_text[] =
 #endif
 #endif
 #if defined(CONFIG_CMD_IMPORTENV)
-	"env import [-d] [-t [-r] | -b | -c] addr [size] [var ...] - import environment\n"
+	"env import [-d] [-t [-r] | -b | -c] addr [size] - import environment\n"
 #endif
 	"env print [-a | name ...] - print environment\n"
-#if defined(CONFIG_CMD_NVEDIT_EFI)
-	"env print -e [name ...] - print UEFI environment\n"
-#endif
 #if defined(CONFIG_CMD_RUN)
 	"env run var [...] - run commands in an environment variable\n"
 #endif
 #if defined(CONFIG_CMD_SAVEENV) && !defined(CONFIG_ENV_IS_NOWHERE)
 	"env save - save environment\n"
-#endif
-#if defined(CONFIG_CMD_NVEDIT_EFI)
-	"env set -e name [arg ...] - set UEFI variable; unset if 'arg' not specified\n"
 #endif
 	"env set [-f] name [arg ...]\n";
 #endif
@@ -1312,10 +1585,6 @@ U_BOOT_CMD_COMPLETE(
 	printenv, CONFIG_SYS_MAXARGS, 1,	do_env_print,
 	"print environment variables",
 	"[-a]\n    - print [all] values of all environment variables\n"
-#if defined(CONFIG_CMD_NVEDIT_EFI)
-	"printenv -e [name ...]\n"
-	"    - print UEFI variable 'name' or all the variables\n"
-#endif
 	"printenv name ...\n"
 	"    - print value of environment variable 'name'",
 	var_complete
@@ -1343,12 +1612,7 @@ U_BOOT_CMD_COMPLETE(
 U_BOOT_CMD_COMPLETE(
 	setenv, CONFIG_SYS_MAXARGS, 0,	do_env_set,
 	"set environment variables",
-#if defined(CONFIG_CMD_NVEDIT_EFI)
-	"-e name [value ...]\n"
-	"    - set UEFI variable 'name' to 'value' ...'\n"
-	"    - delete UEFI variable 'name' if 'value' not specified\n"
-#endif
-	"setenv [-f] name value ...\n"
+	"[-f] name value ...\n"
 	"    - [forcibly] set environment variable 'name' to 'value ...'\n"
 	"setenv [-f] name\n"
 	"    - [forcibly] delete environment variable 'name'",

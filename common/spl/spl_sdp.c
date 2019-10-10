@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2016 Toradex
  * Author: Stefan Agner <stefan.agner@toradex.com>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -9,6 +10,8 @@
 #include <usb.h>
 #include <g_dnl.h>
 #include <sdp.h>
+
+DECLARE_GLOBAL_DATA_PTR;
 
 static int spl_sdp_load_image(struct spl_image_info *spl_image,
 			      struct spl_boot_device *bootdev)
@@ -21,13 +24,13 @@ static int spl_sdp_load_image(struct spl_image_info *spl_image,
 
 	ret = sdp_init(controller_index);
 	if (ret) {
-		pr_err("SDP init failed: %d\n", ret);
+		pr_err("SDP init failed: %d", ret);
 		return -ENODEV;
 	}
 
 	/* This command typically does not return but jumps to an image */
 	sdp_handle(controller_index);
-	pr_err("SDP ended\n");
+	pr_err("SDP ended");
 
 	return -EINVAL;
 }

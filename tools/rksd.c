@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2015 Google,  Inc
  * Written by Simon Glass <sjg@chromium.org>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  *
  * See README.rockchip for details of the rksd format
  */
@@ -25,7 +26,7 @@ static void rksd_set_header(void *buf,  struct stat *sbuf,  int ifd,
 	 * header).
 	 */
 	size = params->file_size - RK_SPL_HDR_START;
-	ret = rkcommon_set_header(buf, size, params);
+	ret = rkcommon_set_header(buf, size, RK_MAX_BOOT_SIZE, params);
 	if (ret) {
 		/* TODO(sjg@chromium.org): This method should return an error */
 		printf("Warning: SPL image is too large (size %#x) and will "

@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /* #define DEBUG */
@@ -111,7 +112,7 @@ addr2info (ulong addr)
  * and no protected sectors are hit.
  * Returns:
  * ERR_OK          0 - OK
- * ERR_TIMEOUT     1 - write timeout
+ * ERR_TIMOUT      1 - write timeout
  * ERR_NOT_ERASED  2 - Flash not erased
  * ERR_PROTECTED   4 - target range includes protected sectors
  * ERR_INVAL       8 - target address not in Flash memory
@@ -184,7 +185,7 @@ void flash_perror (int err)
 	switch (err) {
 	case ERR_OK:
 		break;
-	case ERR_TIMEOUT:
+	case ERR_TIMOUT:
 		puts ("Timeout writing to Flash\n");
 		break;
 	case ERR_NOT_ERASED:

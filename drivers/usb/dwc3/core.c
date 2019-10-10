@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /**
  * core.c - DesignWare USB3 DRD Controller Core file
  *
@@ -11,15 +10,17 @@
  * to uboot.
  *
  * commit cd72f890d2 : usb: dwc3: core: enable phy suspend quirk on non-FPGA
+ *
+ * SPDX-License-Identifier:     GPL-2.0
  */
 
 #include <common.h>
 #include <malloc.h>
+#include <fdtdec.h>
 #include <dwc3-uboot.h>
 #include <asm/dma-mapping.h>
 #include <linux/ioport.h>
-#include <dm.h>
-#include <generic-phy.h>
+
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
@@ -28,6 +29,8 @@
 #include "io.h"
 
 #include "linux-compat.h"
+
+DECLARE_GLOBAL_DATA_PTR;
 
 static LIST_HEAD(dwc3_list);
 /* -------------------------------------------------------------------------- */
@@ -111,8 +114,7 @@ static struct dwc3_event_buffer *dwc3_alloc_one_event_buffer(struct dwc3 *dwc,
 {
 	struct dwc3_event_buffer	*evt;
 
-	evt = devm_kzalloc((struct udevice *)dwc->dev, sizeof(*evt),
-			   GFP_KERNEL);
+	evt = devm_kzalloc(dwc->dev, sizeof(*evt), GFP_KERNEL);
 	if (!evt)
 		return ERR_PTR(-ENOMEM);
 
@@ -391,6 +393,11 @@ static void dwc3_phy_setup(struct dwc3 *dwc)
 	if (dwc->dis_u2_susphy_quirk)
 		reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
 
+	if (dwc->usb2_phyif_utmi_width == 16) {
+		reg &= ~DWC3_GUSB2PHYCFG_USBTRDTIM_MASK;
+		reg |= DWC3_GUSB2PHYCFG_USBTRDTIM_16BIT;
+		reg |= DWC3_GUSB2PHYCFG_PHYIF_16BIT;
+	}
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
 
 	mdelay(100);
@@ -624,9 +631,10 @@ int dwc3_uboot_init(struct dwc3_device *dwc3_dev)
 	int			ret;
 
 	void			*mem;
+	const void *blob = gd->fdt_blob;
+	int node;
 
-	mem = devm_kzalloc((struct udevice *)dev,
-			   sizeof(*dwc) + DWC3_ALIGN_MASK, GFP_KERNEL);
+	mem = devm_kzalloc(dev, sizeof(*dwc) + DWC3_ALIGN_MASK, GFP_KERNEL);
 	if (!mem)
 		return -ENOMEM;
 
@@ -685,6 +693,17 @@ int dwc3_uboot_init(struct dwc3_device *dwc3_dev)
 		| (dwc->is_utmi_l1_suspend << 4);
 
 	dwc->index = dwc3_dev->index;
+
+	if (dwc3_dev->usb2_phyif_utmi_width)
+		dwc->usb2_phyif_utmi_width = dwc3_dev->usb2_phyif_utmi_width;
+
+	node = fdt_node_offset_by_compatible(blob, -1,
+			"rockchip,rk3399-xhci");
+	if (node < 0)
+		debug("%s dwc3 node not found\n", __func__);
+	else
+		dwc->usb2_phyif_utmi_width =
+			fdtdec_get_int(blob, node, "snps,phyif-utmi-bits", -1);
 
 	dwc3_cache_hwparams(dwc);
 
@@ -788,141 +807,3 @@ MODULE_ALIAS("platform:dwc3");
 MODULE_AUTHOR("Felipe Balbi <balbi@ti.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("DesignWare USB3 DRD Controller Driver");
-
-#if CONFIG_IS_ENABLED(PHY) && CONFIG_IS_ENABLED(DM_USB)
-int dwc3_setup_phy(struct udevice *dev, struct phy **array, int *num_phys)
-{
-	int i, ret, count;
-	struct phy *usb_phys;
-
-	/* Return if no phy declared */
-	if (!dev_read_prop(dev, "phys", NULL))
-		return 0;
-	count = dev_count_phandle_with_args(dev, "phys", "#phy-cells");
-	if (count <= 0)
-		return count;
-
-	usb_phys = devm_kcalloc(dev, count, sizeof(struct phy),
-				GFP_KERNEL);
-	if (!usb_phys)
-		return -ENOMEM;
-
-	for (i = 0; i < count; i++) {
-		ret = generic_phy_get_by_index(dev, i, &usb_phys[i]);
-		if (ret && ret != -ENOENT) {
-			pr_err("Failed to get USB PHY%d for %s\n",
-			       i, dev->name);
-			return ret;
-		}
-	}
-
-	for (i = 0; i < count; i++) {
-		ret = generic_phy_init(&usb_phys[i]);
-		if (ret) {
-			pr_err("Can't init USB PHY%d for %s\n",
-			       i, dev->name);
-			goto phys_init_err;
-		}
-	}
-
-	for (i = 0; i < count; i++) {
-		ret = generic_phy_power_on(&usb_phys[i]);
-		if (ret) {
-			pr_err("Can't power USB PHY%d for %s\n",
-			       i, dev->name);
-			goto phys_poweron_err;
-		}
-	}
-
-	*array = usb_phys;
-	*num_phys =  count;
-	return 0;
-
-phys_poweron_err:
-	for (i = count - 1; i >= 0; i--)
-		generic_phy_power_off(&usb_phys[i]);
-
-	for (i = 0; i < count; i++)
-		generic_phy_exit(&usb_phys[i]);
-
-	return ret;
-
-phys_init_err:
-	for (; i >= 0; i--)
-		generic_phy_exit(&usb_phys[i]);
-
-	return ret;
-}
-
-int dwc3_shutdown_phy(struct udevice *dev, struct phy *usb_phys, int num_phys)
-{
-	int i, ret;
-
-	for (i = 0; i < num_phys; i++) {
-		if (!generic_phy_valid(&usb_phys[i]))
-			continue;
-
-		ret = generic_phy_power_off(&usb_phys[i]);
-		ret |= generic_phy_exit(&usb_phys[i]);
-		if (ret) {
-			pr_err("Can't shutdown USB PHY%d for %s\n",
-			       i, dev->name);
-		}
-	}
-
-	return 0;
-}
-#endif
-
-#if CONFIG_IS_ENABLED(DM_USB_GADGET)
-int dwc3_init(struct dwc3 *dwc)
-{
-	int ret;
-
-	dwc3_cache_hwparams(dwc);
-
-	ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
-	if (ret) {
-		dev_err(dwc->dev, "failed to allocate event buffers\n");
-		return -ENOMEM;
-	}
-
-	ret = dwc3_core_init(dwc);
-	if (ret) {
-		dev_err(dev, "failed to initialize core\n");
-		goto core_fail;
-	}
-
-	ret = dwc3_event_buffers_setup(dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to setup event buffers\n");
-		goto event_fail;
-	}
-
-	ret = dwc3_core_init_mode(dwc);
-	if (ret)
-		goto mode_fail;
-
-	return 0;
-
-mode_fail:
-	dwc3_event_buffers_cleanup(dwc);
-
-event_fail:
-	dwc3_core_exit(dwc);
-
-core_fail:
-	dwc3_free_event_buffers(dwc);
-
-	return ret;
-}
-
-void dwc3_remove(struct dwc3 *dwc)
-{
-	dwc3_core_exit_mode(dwc);
-	dwc3_event_buffers_cleanup(dwc);
-	dwc3_free_event_buffers(dwc);
-	dwc3_core_exit(dwc);
-	kfree(dwc->mem);
-}
-#endif

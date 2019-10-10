@@ -1,9 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * cmd_sdp.c -- sdp command
  *
  * Copyright (C) 2016 Toradex
  * Author: Stefan Agner <stefan.agner@toradex.com>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -20,24 +21,24 @@ static int do_sdp(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 	char *usb_controller = argv[1];
 	int controller_index = simple_strtoul(usb_controller, NULL, 0);
-	usb_gadget_initialize(controller_index);
+	board_usb_init(controller_index, USB_INIT_DEVICE);
 
 	g_dnl_clear_detach();
 	g_dnl_register("usb_dnl_sdp");
 
 	ret = sdp_init(controller_index);
 	if (ret) {
-		pr_err("SDP init failed: %d\n", ret);
+		pr_err("SDP init failed: %d", ret);
 		goto exit;
 	}
 
 	/* This command typically does not return but jumps to an image */
 	sdp_handle(controller_index);
-	pr_err("SDP ended\n");
+	pr_err("SDP ended");
 
 exit:
 	g_dnl_unregister();
-	usb_gadget_release(controller_index);
+	board_usb_cleanup(controller_index, USB_INIT_DEVICE);
 
 	return ret;
 }

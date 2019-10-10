@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2012, Google Inc.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -166,6 +167,11 @@ static int do_host(cmd_tbl_t *cmdtp, int flag, int argc,
 	else
 		return CMD_RET_USAGE;
 }
+
+U_BOOT_CMD(
+	sb,	8,	1,	do_host,
+	"Deprecated: use 'host' command instead.", ""
+);
 
 U_BOOT_CMD(
 	host, 8, 1, do_host,

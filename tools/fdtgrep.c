@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2013, Google Inc.
  * Written by Simon Glass <sjg@chromium.org>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  *
  * Perform a grep of an FDT either displaying the source subset or producing
  * a new .dtb subset which can be used as required.
@@ -9,16 +10,13 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <errno.h>
 #include <getopt.h>
-#include <fcntl.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "fdt_host.h"
+#include "../include/libfdt.h"
 #include "libfdt_internal.h"
 
 /* Define DEBUG to get some debugging output on stderr */
@@ -133,11 +131,11 @@ static int value_add(struct display_info *disp, struct value_node **headp,
 	}
 
 	str = strdup(str);
-	if (!str)
-		goto err_mem;
 	node = malloc(sizeof(*node));
-	if (!node)
-		goto err_mem;
+	if (!str || !node) {
+		fprintf(stderr, "Out of memory\n");
+		return -1;
+	}
 	node->next = *headp;
 	node->type = type;
 	node->include = include;
@@ -145,9 +143,6 @@ static int value_add(struct display_info *disp, struct value_node **headp,
 	*headp = node;
 
 	return 0;
-err_mem:
-	fprintf(stderr, "Out of memory\n");
-	return -1;
 }
 
 static bool util_is_printable_string(const void *data, int len)
@@ -776,7 +771,7 @@ char *utilfdt_read(const char *filename)
  */
 static int do_fdtgrep(struct display_info *disp, const char *filename)
 {
-	struct fdt_region *region = NULL;
+	struct fdt_region *region;
 	int max_regions;
 	int count = 100;
 	char path[1024];
@@ -804,7 +799,7 @@ static int do_fdtgrep(struct display_info *disp, const char *filename)
 	 * The first pass will count the regions, but if it is too many,
 	 * we do another pass to actually record them.
 	 */
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < 3; i++) {
 		region = malloc(count * sizeof(struct fdt_region));
 		if (!region) {
 			fprintf(stderr, "Out of memory for %d regions\n",
@@ -818,14 +813,11 @@ static int do_fdtgrep(struct display_info *disp, const char *filename)
 				disp->flags);
 		if (count < 0) {
 			report_error("fdt_find_regions", count);
-			free(region);
 			return -1;
 		}
 		if (count <= max_regions)
 			break;
 		free(region);
-		fprintf(stderr, "Internal error with fdtgrep_find_region)(\n");
-		return -1;
 	}
 
 	/* Optionally print a list of regions */

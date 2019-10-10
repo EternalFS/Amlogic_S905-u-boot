@@ -1,9 +1,10 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2016 Amarula Solutions B.V.
  * Copyright (C) 2016 Engicam S.r.l.
  *
  * Configuration settings for the Engicam i.MX6 SOM Starter Kits.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __IMX6_ENGICAM_CONFIG_H
@@ -43,30 +44,19 @@
 	"fdt_addr=" FDT_ADDR "\0" \
 	"boot_fdt=try\0" \
 	"mmcpart=1\0" \
-	"recovery_device=0\0" \
-	"recovery_part=2\0" \
-	"recovery_root=/dev/mmcblk0p2 rootwait rw\0" \
 	"nandroot=ubi0:rootfs rootfstype=ubifs\0" \
 	"mmcautodetect=yes\0" \
 	"mmcargs=setenv bootargs console=${console},${baudrate} " \
 		"root=${mmcroot}\0" \
-	"recovery_mmcargs= setenv bootargs console=${console},${baudrate} "\
-		"root=${recovery_root}\0" \
 	"ubiargs=setenv bootargs console=${console},${baudrate} " \
 		"ubi.mtd=5 root=${nandroot} ${mtdparts}\0" \
 	"loadbootscript=" \
 		"fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${script};\0" \
 	"bootscript=echo Running bootscript from mmc ...; " \
 		"source\0" \
-	"recovery_loadimage=ext2load mmc ${recovery_device}:${recovery_part} ${loadaddr} ${image}\0" \
-	"recovery_loadfdt=ext2load mmc ${recovery_device}:${recovery_part} ${fdt_addr} ${fdt_file}\0" \
 	"loadimage=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${image}\0" \
 	"loadfdt=fatload mmc ${mmcdev}:${mmcpart} ${fdt_addr} ${fdt_file}\0" \
 	"loadfit=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${fit_image}\0" \
-	"altbootcmd=run recovery_boot\0"\
-	"recovery_boot=echo Recovery Boot from mmc ...; " \
-		"run recovery_loadimage ; run recovery_loadfdt; run recovery_mmcargs; "\
-		"bootm ${loadaddr} - ${fdt_addr}\0" \
 	"fitboot=echo Booting FIT image from mmc ...; " \
 		"run mmcargs; " \
 		"bootm ${loadaddr}\0" \
@@ -128,6 +118,7 @@
 #endif
 
 /* Physical Memory Map */
+#define CONFIG_NR_DRAM_BANKS		1
 #define PHYS_SDRAM			MMDC0_ARB_BASE_ADDR
 
 #define CONFIG_SYS_SDRAM_BASE		PHYS_SDRAM
@@ -138,6 +129,11 @@
 					GENERATED_GBL_DATA_SIZE)
 #define CONFIG_SYS_INIT_SP_ADDR		(CONFIG_SYS_INIT_RAM_ADDR + \
 					CONFIG_SYS_INIT_SP_OFFSET)
+
+/* FIT */
+#ifdef CONFIG_FIT
+# define CONFIG_IMAGE_FORMAT_LEGACY
+#endif
 
 /* UART */
 #ifdef CONFIG_MXC_UART
@@ -163,6 +159,15 @@
 # define CONFIG_SYS_NAND_U_BOOT_OFFS	0x200000
 
 /* MTD device */
+# define CONFIG_MTD_DEVICE
+# define CONFIG_MTD_PARTITIONS
+# define MTDIDS_DEFAULT			"nand0=gpmi-nand"
+# define MTDPARTS_DEFAULT		"mtdparts=gpmi-nand:2m(spl),2m(uboot)," \
+					"1m(env),8m(kernel),1m(dtb),-(rootfs)"
+
+# define CONFIG_APBH_DMA
+# define CONFIG_APBH_DMA_BURST
+# define CONFIG_APBH_DMA_BURST8
 #endif
 
 /* Ethernet */
@@ -174,6 +179,8 @@
 #  define CONFIG_FEC_MXC_PHYADDR	0
 #  define CONFIG_FEC_XCV_TYPE		RMII
 # endif
+
+# define CONFIG_MII
 #endif
 
 /* Falcon Mode */
@@ -192,6 +199,7 @@
 
 /* Framebuffer */
 #ifdef CONFIG_VIDEO_IPUV3
+# define CONFIG_IPUV3_CLK		260000000
 # define CONFIG_IMX_VIDEO_SKIP
 
 # define CONFIG_SPLASH_SCREEN
@@ -204,13 +212,24 @@
 
 /* SPL */
 #ifdef CONFIG_SPL
-# ifdef CONFIG_ENV_IS_IN_NAND
+# ifdef CONFIG_NAND_MXS
 #  define CONFIG_SPL_NAND_SUPPORT
 # else
 #  define CONFIG_SPL_MMC_SUPPORT
 # endif
 
 # include "imx6_spl.h"
+# ifdef CONFIG_SPL_BUILD
+#  if defined(CONFIG_TARGET_MX6Q_ICORE_RQS) || defined(CONFIG_TARGET_MX6UL_ISIOT)
+#   define CONFIG_SYS_FSL_USDHC_NUM	2
+#  else
+#   define CONFIG_SYS_FSL_USDHC_NUM	1
+#  endif
+
+#  define CONFIG_SYS_FSL_ESDHC_ADDR	0
+#  undef CONFIG_DM_GPIO
+#  undef CONFIG_DM_MMC
+# endif
 #endif
 
 #endif /* __IMX6_ENGICAM_CONFIG_H */

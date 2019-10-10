@@ -6,7 +6,6 @@
 /easylogo/easylogo
 /envcrc
 /fdtgrep
-/file2include
 /fit_check_sign
 /fit_info
 /gdb/gdbcont
@@ -24,7 +23,6 @@
 /mksunxiboot
 /mxsboot
 /ncb
-/prelink-riscv
 /proftool
 /relocate-rela
 /sunxi-spl-image-builder

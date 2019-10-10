@@ -3,7 +3,8 @@
 
 #ifndef __ASSEMBLY__
 #ifdef CONFIG_PHY_AQUANTIA
-#include <phy_interface.h>
+#include <miiphy.h>
+#include <phy.h>
 #endif
 
 struct spi_slave;

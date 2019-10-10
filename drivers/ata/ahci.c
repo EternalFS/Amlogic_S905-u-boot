@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) Freescale Semiconductor, Inc. 2006.
  * Author: Jason Jin<Jason.jin@freescale.com>
  *         Zhang Wei<wei.zhang@freescale.com>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  *
  * with the reference on libata and ahci drvier in kernel
  *
@@ -54,6 +55,17 @@ __weak void __iomem *ahci_port_base(void __iomem *base, u32 port)
 {
 	return base + 0x100 + (port * 0x80);
 }
+
+
+static void ahci_setup_port(struct ahci_ioports *port, void __iomem *base,
+			    unsigned int port_idx)
+{
+	base = ahci_port_base(base, port_idx);
+
+	port->cmd_addr = base;
+	port->scr_addr = base + PORT_SCR;
+}
+
 
 #define msleep(a) udelay(a * 1000)
 
@@ -219,16 +231,15 @@ static int ahci_host_init(struct ahci_uc_priv *uc_priv)
 	debug("cap 0x%x  port_map 0x%x  n_ports %d\n",
 	      uc_priv->cap, uc_priv->port_map, uc_priv->n_ports);
 
-#if !defined(CONFIG_DM_SCSI)
 	if (uc_priv->n_ports > CONFIG_SYS_SCSI_MAX_SCSI_ID)
 		uc_priv->n_ports = CONFIG_SYS_SCSI_MAX_SCSI_ID;
-#endif
 
 	for (i = 0; i < uc_priv->n_ports; i++) {
 		if (!(port_map & (1 << i)))
 			continue;
 		uc_priv->port[i].port_mmio = ahci_port_base(mmio, i);
 		port_mmio = (u8 *)uc_priv->port[i].port_mmio;
+		ahci_setup_port(&uc_priv->port[i], mmio, i);
 
 		/* make sure port is not active */
 		tmp = readl(port_mmio + PORT_CMD);
@@ -559,12 +570,15 @@ static int ahci_port_start(struct ahci_uc_priv *uc_priv, u8 port)
 		return -1;
 	}
 
-	mem = memalign(2048, AHCI_PORT_PRIV_DMA_SZ);
+	mem = malloc(AHCI_PORT_PRIV_DMA_SZ + 2048);
 	if (!mem) {
 		free(pp);
 		printf("%s: No mem for table!\n", __func__);
 		return -ENOMEM;
 	}
+
+	/* Aligned to 2048-bytes */
+	mem = memalign(2048, AHCI_PORT_PRIV_DMA_SZ);
 	memset(mem, 0, AHCI_PORT_PRIV_DMA_SZ);
 
 	/*
@@ -967,7 +981,7 @@ static int ahci_start_ports(struct ahci_uc_priv *uc_priv)
 
 	linkmap = uc_priv->link_port_map;
 
-	for (i = 0; i < uc_priv->n_ports; i++) {
+	for (i = 0; i < CONFIG_SYS_SCSI_MAX_SCSI_ID; i++) {
 		if (((linkmap >> i) & 0x01)) {
 			if (ahci_port_start(uc_priv, (u8) i)) {
 				printf("Can not start port %d\n", i);
@@ -1012,7 +1026,7 @@ void scsi_low_level_init(int busdevfunc)
 
 #ifndef CONFIG_SCSI_AHCI_PLAT
 # if defined(CONFIG_DM_PCI) || defined(CONFIG_DM_SCSI)
-int ahci_init_one_dm(struct udevice *dev)
+int achi_init_one_dm(struct udevice *dev)
 {
 	struct ahci_uc_priv *uc_priv = dev_get_uclass_priv(dev);
 
@@ -1021,7 +1035,7 @@ int ahci_init_one_dm(struct udevice *dev)
 #endif
 #endif
 
-int ahci_start_ports_dm(struct udevice *dev)
+int achi_start_ports_dm(struct udevice *dev)
 {
 	struct ahci_uc_priv *uc_priv = dev_get_uclass_priv(dev);
 

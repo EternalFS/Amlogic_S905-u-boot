@@ -1,7 +1,8 @@
 #!/usr/bin/env python2
-# SPDX-License-Identifier: GPL-2.0+
 #
 # Author: Masahiro Yamada <yamada.masahiro@socionext.com>
+#
+# SPDX-License-Identifier:	GPL-2.0+
 #
 
 """
@@ -545,28 +546,6 @@ def confirm(options, prompt):
 
     return True
 
-def cleanup_empty_blocks(header_path, options):
-    """Clean up empty conditional blocks
-
-    Arguments:
-      header_path: path to the cleaned file.
-      options: option flags.
-    """
-    pattern = re.compile(r'^\s*#\s*if.*$\n^\s*#\s*endif.*$\n*', flags=re.M)
-    with open(header_path) as f:
-        data = f.read()
-
-    new_data = pattern.sub('\n', data)
-
-    show_diff(data.splitlines(True), new_data.splitlines(True), header_path,
-              options.color)
-
-    if options.dry_run:
-        return
-
-    with open(header_path, 'w') as f:
-        f.write(new_data)
-
 def cleanup_one_header(header_path, patterns, options):
     """Clean regex-matched lines away from a file.
 
@@ -648,9 +627,8 @@ def cleanup_headers(configs, options):
                 continue
             for filename in filenames:
                 if not fnmatch.fnmatch(filename, '*~'):
-                    header_path = os.path.join(dirpath, filename)
-                    cleanup_one_header(header_path, patterns, options)
-                    cleanup_empty_blocks(header_path, options)
+                    cleanup_one_header(os.path.join(dirpath, filename),
+                                       patterns, options)
 
 def cleanup_one_extra_option(defconfig_path, configs, options):
     """Delete config defines in CONFIG_SYS_EXTRA_OPTIONS in one defconfig file.
@@ -1192,7 +1170,7 @@ class Slot:
             toolchain = self.toolchains.Select(arch)
         except ValueError:
             self.log += color_text(self.options.color, COLOR_YELLOW,
-                    "Tool chain for '%s' is missing.  Do nothing.\n" % arch)
+                    "Tool chain for '%s' is missing.  Do nothing.\n % arch")
             self.finish(False)
             return
 	env = toolchain.MakeEnvironment(False)
@@ -1494,7 +1472,7 @@ def find_kconfig_rules(kconf, config, imply_config):
     """
     sym = kconf.get_symbol(imply_config)
     if sym:
-        for sel in sym.get_selected_symbols() | sym.get_implied_symbols():
+        for sel in sym.get_selected_symbols():
             if sel.get_name() == config:
                 return sym
     return None

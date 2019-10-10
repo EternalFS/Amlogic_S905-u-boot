@@ -1,15 +1,16 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2014
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
  *
  * Based on lib/fdtdec.c:
  * Copyright (c) 2011 The Chromium OS Authors.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef USE_HOSTCC
 #include <common.h>
-#include <linux/libfdt.h>
+#include <libfdt.h>
 #include <fdtdec.h>
 #else
 #include "libfdt.h"

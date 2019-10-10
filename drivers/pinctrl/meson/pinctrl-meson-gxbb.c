@@ -1,9 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2016 - Beniamino Galvani <b.galvani@gmail.com>
  *
  * Based on code from Linux kernel:
  *   Copyright (C) 2016 Endless Mobile, Inc.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -11,9 +12,9 @@
 #include <dm/pinctrl.h>
 #include <dt-bindings/gpio/meson-gxbb-gpio.h>
 
-#include "pinctrl-meson-gx.h"
+#include "pinctrl-meson.h"
 
-#define EE_OFF	15
+#define EE_OFF	14
 
 static const unsigned int emmc_nand_d07_pins[] = {
 	PIN(BOOT_0, EE_OFF), PIN(BOOT_1, EE_OFF), PIN(BOOT_2, EE_OFF),
@@ -144,7 +145,6 @@ static struct meson_pmx_group meson_gxbb_periphs_groups[] = {
 	GPIO_GROUP(GPIODV_15, EE_OFF),
 	GPIO_GROUP(GPIODV_16, EE_OFF),
 	GPIO_GROUP(GPIODV_17, EE_OFF),
-	GPIO_GROUP(GPIODV_18, EE_OFF),
 	GPIO_GROUP(GPIODV_19, EE_OFF),
 	GPIO_GROUP(GPIODV_20, EE_OFF),
 	GPIO_GROUP(GPIODV_21, EE_OFF),
@@ -203,6 +203,8 @@ static struct meson_pmx_group meson_gxbb_periphs_groups[] = {
 	GPIO_GROUP(GPIOCLK_1, EE_OFF),
 	GPIO_GROUP(GPIOCLK_2, EE_OFF),
 	GPIO_GROUP(GPIOCLK_3, EE_OFF),
+
+	GPIO_GROUP(GPIO_TEST_N, EE_OFF),
 
 	/* Bank X */
 	GROUP(uart_tx_a,	4,	13),
@@ -269,8 +271,6 @@ static struct meson_pmx_group meson_gxbb_aobus_groups[] = {
 	GPIO_GROUP(GPIOAO_12, 0),
 	GPIO_GROUP(GPIOAO_13, 0),
 
-	GPIO_GROUP(GPIO_TEST_N, 0),
-
 	/* bank AO */
 	GROUP(uart_tx_ao_b,	0,	26),
 	GROUP(uart_rx_ao_b,	0,	25),
@@ -320,7 +320,7 @@ static const char * const gpio_periphs_groups[] = {
 	"GPIOX_15", "GPIOX_16", "GPIOX_17", "GPIOX_18", "GPIOX_19",
 	"GPIOX_20", "GPIOX_21", "GPIOX_22",
 
-	"GPIOCLK_0", "GPIOCLK_1", "GPIOCLK_2", "GPIOCLK_3",
+	"GPIO_TEST_N",
 };
 
 static const char * const emmc_groups[] = {
@@ -355,8 +355,6 @@ static const char * const gpio_aobus_groups[] = {
 	"GPIOAO_0", "GPIOAO_1", "GPIOAO_2", "GPIOAO_3", "GPIOAO_4",
 	"GPIOAO_5", "GPIOAO_6", "GPIOAO_7", "GPIOAO_8", "GPIOAO_9",
 	"GPIOAO_10", "GPIOAO_11", "GPIOAO_12", "GPIOAO_13",
-
-	"GPIO_TEST_N",
 };
 
 static const char * const uart_ao_groups[] = {
@@ -412,15 +410,14 @@ static struct meson_bank meson_gxbb_aobus_banks[] = {
 
 struct meson_pinctrl_data meson_gxbb_periphs_pinctrl_data = {
 	.name		= "periphs-banks",
-	.pin_base	= 15,
+	.pin_base	= 14,
 	.groups		= meson_gxbb_periphs_groups,
 	.funcs		= meson_gxbb_periphs_functions,
 	.banks		= meson_gxbb_periphs_banks,
-	.num_pins	= 119,
+	.num_pins	= 120,
 	.num_groups	= ARRAY_SIZE(meson_gxbb_periphs_groups),
 	.num_funcs	= ARRAY_SIZE(meson_gxbb_periphs_functions),
 	.num_banks	= ARRAY_SIZE(meson_gxbb_periphs_banks),
-	.gpio_driver	= &meson_gx_gpio_driver,
 };
 
 struct meson_pinctrl_data meson_gxbb_aobus_pinctrl_data = {
@@ -429,11 +426,10 @@ struct meson_pinctrl_data meson_gxbb_aobus_pinctrl_data = {
 	.groups		= meson_gxbb_aobus_groups,
 	.funcs		= meson_gxbb_aobus_functions,
 	.banks		= meson_gxbb_aobus_banks,
-	.num_pins	= 15,
+	.num_pins	= 14,
 	.num_groups	= ARRAY_SIZE(meson_gxbb_aobus_groups),
 	.num_funcs	= ARRAY_SIZE(meson_gxbb_aobus_functions),
 	.num_banks	= ARRAY_SIZE(meson_gxbb_aobus_banks),
-	.gpio_driver	= &meson_gx_gpio_driver,
 };
 
 static const struct udevice_id meson_gxbb_pinctrl_match[] = {
@@ -454,5 +450,5 @@ U_BOOT_DRIVER(meson_gxbb_pinctrl) = {
 	.of_match = of_match_ptr(meson_gxbb_pinctrl_match),
 	.probe = meson_pinctrl_probe,
 	.priv_auto_alloc_size = sizeof(struct meson_pinctrl),
-	.ops = &meson_gx_pinctrl_ops,
+	.ops = &meson_pinctrl_ops,
 };

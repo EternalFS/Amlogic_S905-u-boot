@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2015 Google,  Inc
  * Written by Simon Glass <sjg@chromium.org>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  *
  * See README.rockchip for details of the rkspi format
  */
@@ -24,7 +25,7 @@ static void rkspi_set_header(void *buf, struct stat *sbuf, int ifd,
 	int ret;
 
 	size = params->orig_file_size;
-	ret = rkcommon_set_header(buf, size, params);
+	ret = rkcommon_set_header(buf, size, RK_MAX_BOOT_SIZE, params);
 	debug("size %x\n", size);
 	if (ret) {
 		/* TODO(sjg@chromium.org): This method should return an error */

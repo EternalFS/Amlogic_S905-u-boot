@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
@@ -18,6 +17,8 @@
  *
  *   $Id: cmdlinepart.c,v 1.17 2004/11/26 11:18:47 lavinen Exp $
  *   Copyright 2002 SYSGO Real-Time Solutions GmbH
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -79,7 +80,7 @@
 #include <cramfs/cramfs_fs.h>
 
 #if defined(CONFIG_CMD_NAND)
-#include <linux/mtd/rawnand.h>
+#include <linux/mtd/nand.h>
 #include <nand.h>
 #endif
 

@@ -1,8 +1,9 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (c) 2012 The Chromium OS Authors.
  * (C) Copyright 2002-2010
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __ASM_GENERIC_GBL_DATA_H
@@ -20,9 +21,15 @@
  */
 
 #ifndef __ASSEMBLY__
-#include <fdtdec.h>
 #include <membuff.h>
 #include <linux/list.h>
+
+/* Never change the sequence of members !!! */
+struct pm_ctx {
+	unsigned long sp;
+	phys_addr_t cpu_resume_addr;
+	unsigned long suspend_regs[15];
+};
 
 typedef struct global_data {
 	bd_t *bd;
@@ -50,10 +57,7 @@ typedef struct global_data {
 #endif
 	unsigned long env_addr;		/* Address  of Environment struct */
 	unsigned long env_valid;	/* Environment valid? enum env_valid */
-	unsigned long env_has_init;	/* Bitmask of boolean of struct env_location offsets */
-	int env_load_prio;		/* Priority of the loaded environment */
 
-	unsigned long ram_base;		/* Base address of RAM used by U-Boot */
 	unsigned long ram_top;		/* Top address of RAM used by U-Boot */
 	unsigned long relocaddr;	/* Start address of U-Boot in RAM */
 	phys_size_t ram_size;		/* RAM size */
@@ -77,10 +81,6 @@ typedef struct global_data {
 	unsigned long fdt_size;		/* Space reserved for relocated FDT */
 #ifdef CONFIG_OF_LIVE
 	struct device_node *of_root;
-#endif
-
-#if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
-	const void *multi_dtb_fit;	/* uncompressed multi-dtb FIT image */
 #endif
 	struct jt_funcs *jt;		/* jump table */
 	char env_buf[32];		/* buffer for env_get() before reloc. */
@@ -121,24 +121,16 @@ typedef struct global_data {
 	struct bootstage_data *bootstage;	/* Bootstage information */
 	struct bootstage_data *new_bootstage;	/* Relocated bootstage info */
 #endif
+	phys_addr_t pm_ctx_phys;
+
+#ifdef CONFIG_BOOTSTAGE_PRINTF_TIMESTAMP
+	int new_line;
+#endif
+
 #ifdef CONFIG_LOG
 	int log_drop_count;		/* Number of dropped log messages */
 	int default_log_level;		/* For devices with no filters */
 	struct list_head log_head;	/* List of struct log_device */
-	int log_fmt;			/* Mask containing log format info */
-#endif
-#if CONFIG_IS_ENABLED(BLOBLIST)
-	struct bloblist_hdr *bloblist;	/* Bloblist information */
-	struct bloblist_hdr *new_bloblist;	/* Relocated blolist info */
-# ifdef CONFIG_SPL
-	struct spl_handoff *spl_handoff;
-# endif
-#endif
-#if defined(CONFIG_TRANSLATION_OFFSET)
-	fdt_addr_t translation_offset;	/* optional translation offset */
-#endif
-#if defined(CONFIG_WDT)
-	struct udevice *watchdog_dev;
 #endif
 } gd_t;
 #endif
@@ -168,6 +160,10 @@ typedef struct global_data {
 #define GD_FLG_ENV_DEFAULT	0x02000 /* Default variable flag	   */
 #define GD_FLG_SPL_EARLY_INIT	0x04000 /* Early SPL init is done	   */
 #define GD_FLG_LOG_READY	0x08000 /* Log system is ready for use	   */
-#define GD_FLG_WDT_READY	0x10000 /* Watchdog is ready for use	   */
+
+#ifdef CONFIG_ARCH_ROCKCHIP
+/* Currently, we use it to indicate console can be flushed before jump to OS */
+#define GD_FLG_OS_RUN		0x10000
+#endif
 
 #endif /* __ASM_GENERIC_GBL_DATA_H */

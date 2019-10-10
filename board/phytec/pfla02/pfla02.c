@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2017 Stefano Babic <sbabic@denx.de>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -399,7 +400,7 @@ int board_late_init(void)
 #ifdef CONFIG_SPL_BUILD
 #include <asm/arch/mx6-ddr.h>
 #include <spl.h>
-#include <linux/libfdt.h>
+#include <libfdt.h>
 
 #define MX6_PHYFLEX_ERR006282	IMX_GPIO_NR(2, 11)
 static void phyflex_err006282_workaround(void)

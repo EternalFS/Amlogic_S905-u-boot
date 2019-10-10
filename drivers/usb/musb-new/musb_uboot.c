@@ -1,6 +1,9 @@
 #include <common.h>
 #include <console.h>
 #include <watchdog.h>
+#ifdef CONFIG_ARCH_SUNXI
+#include <asm/arch/usb_phy.h>
+#endif
 #include <linux/errno.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -19,7 +22,7 @@ struct int_queue {
 	struct urb urb;
 };
 
-#if !CONFIG_IS_ENABLED(DM_USB)
+#ifndef CONFIG_DM_USB
 struct musb_host_data musb_host;
 #endif
 
@@ -190,16 +193,19 @@ static int _musb_reset_root_port(struct musb_host_data *host,
 	power &= 0xf0;
 	musb_writeb(mbase, MUSB_POWER, MUSB_POWER_RESET | power);
 	mdelay(50);
-
-	if (host->host->ops->pre_root_reset_end)
-		host->host->ops->pre_root_reset_end(host->host);
-
+#ifdef CONFIG_ARCH_SUNXI
+	/*
+	 * sunxi phy has a bug and it will wrongly detect high speed squelch
+	 * when clearing reset on low-speed devices, temporary disable
+	 * squelch detection to work around this.
+	 */
+	sunxi_usb_phy_enable_squelch_detect(0, 0);
+#endif
 	power = musb_readb(mbase, MUSB_POWER);
 	musb_writeb(mbase, MUSB_POWER, ~MUSB_POWER_RESET & power);
-
-	if (host->host->ops->post_root_reset_end)
-		host->host->ops->post_root_reset_end(host->host);
-
+#ifdef CONFIG_ARCH_SUNXI
+	sunxi_usb_phy_enable_squelch_detect(0, 1);
+#endif
 	host->host->isr(0, host->host);
 	host->host_speed = (musb_readb(mbase, MUSB_POWER) & MUSB_POWER_HSMODE) ?
 			USB_SPEED_HIGH :
@@ -243,7 +249,7 @@ int musb_lowlevel_init(struct musb_host_data *host)
 	return 0;
 }
 
-#if !CONFIG_IS_ENABLED(DM_USB)
+#ifndef CONFIG_DM_USB
 int usb_lowlevel_stop(int index)
 {
 	if (!musb_host.host) {
@@ -300,9 +306,9 @@ int usb_lowlevel_init(int index, enum usb_init_type init, void **controller)
 {
 	return musb_lowlevel_init(&musb_host);
 }
-#endif /* !CONFIG_IS_ENABLED(DM_USB) */
+#endif /* !CONFIG_DM_USB */
 
-#if CONFIG_IS_ENABLED(DM_USB)
+#ifdef CONFIG_DM_USB
 static int musb_submit_control_msg(struct udevice *dev, struct usb_device *udev,
 				   unsigned long pipe, void *buffer, int length,
 				   struct devrequest *setup)
@@ -364,10 +370,10 @@ struct dm_usb_ops musb_usb_ops = {
 	.destroy_int_queue = musb_destroy_int_queue,
 	.reset_root_port = musb_reset_root_port,
 };
-#endif /* CONFIG_IS_ENABLED(DM_USB) */
+#endif /* CONFIG_DM_USB */
 #endif /* CONFIG_USB_MUSB_HOST */
 
-#if defined(CONFIG_USB_MUSB_GADGET) && !CONFIG_IS_ENABLED(DM_USB_GADGET)
+#ifdef CONFIG_USB_MUSB_GADGET
 static struct musb *gadget;
 
 int usb_gadget_handle_interrupts(int index)
@@ -419,31 +425,31 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 }
 #endif /* CONFIG_USB_MUSB_GADGET */
 
-struct musb *musb_register(struct musb_hdrc_platform_data *plat, void *bdata,
-			   void *ctl_regs)
+int musb_register(struct musb_hdrc_platform_data *plat, void *bdata,
+			void *ctl_regs)
 {
 	struct musb **musbp;
 
 	switch (plat->mode) {
-#if defined(CONFIG_USB_MUSB_HOST) && !CONFIG_IS_ENABLED(DM_USB)
+#if defined(CONFIG_USB_MUSB_HOST) && !defined(CONFIG_DM_USB)
 	case MUSB_HOST:
 		musbp = &musb_host.host;
 		break;
 #endif
-#if defined(CONFIG_USB_MUSB_GADGET) && !CONFIG_IS_ENABLED(DM_USB_GADGET)
+#ifdef CONFIG_USB_MUSB_GADGET
 	case MUSB_PERIPHERAL:
 		musbp = &gadget;
 		break;
 #endif
 	default:
-		return ERR_PTR(-EINVAL);
+		return -EINVAL;
 	}
 
 	*musbp = musb_init_controller(plat, (struct device *)bdata, ctl_regs);
-	if (IS_ERR(*musbp)) {
+	if (!*musbp) {
 		printf("Failed to init the controller\n");
-		return ERR_CAST(*musbp);
+		return -EIO;
 	}
 
-	return *musbp;
+	return 0;
 }

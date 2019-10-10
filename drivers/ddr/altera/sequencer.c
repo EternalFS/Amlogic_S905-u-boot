@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: BSD-3-Clause
 /*
  * Copyright Altera Corporation (C) 2012-2015
+ *
+ * SPDX-License-Identifier:    BSD-3-Clause
  */
 
 #include <common.h>
@@ -3533,7 +3534,7 @@ static void debug_mem_calibrate(int pass)
 	u32 debug_info;
 
 	if (pass) {
-		debug("%s: CALIBRATION PASSED\n", __FILE__);
+		printf("%s: CALIBRATION PASSED\n", __FILE__);
 
 		gbl->fom_in /= 2;
 		gbl->fom_out /= 2;
@@ -3552,7 +3553,7 @@ static void debug_mem_calibrate(int pass)
 		writel(debug_info, &phy_mgr_cfg->cal_debug_info);
 		writel(PHY_MGR_CAL_SUCCESS, &phy_mgr_cfg->cal_status);
 	} else {
-		debug("%s: CALIBRATION FAILED\n", __FILE__);
+		printf("%s: CALIBRATION FAILED\n", __FILE__);
 
 		debug_info = gbl->error_stage;
 		debug_info |= gbl->error_substage << 8;
@@ -3569,7 +3570,7 @@ static void debug_mem_calibrate(int pass)
 		writel(debug_info, &sdr_reg_file->failing_stage);
 	}
 
-	debug("%s: Calibration complete\n", __FILE__);
+	printf("%s: Calibration complete\n", __FILE__);
 }
 
 /**
@@ -3705,18 +3706,11 @@ static void initialize_tracking(void)
 	       &sdr_reg_file->trk_rfsh);
 }
 
-int sdram_calibration_full(struct socfpga_sdr *sdr)
+int sdram_calibration_full(void)
 {
 	struct param_type my_param;
 	struct gbl_type my_gbl;
 	u32 pass;
-
-	/*
-	 * For size reasons, this file uses hard coded addresses.
-	 * Check if we are called with the correct address.
-	 */
-	if (sdr != (struct socfpga_sdr *)SOCFPGA_SDR_ADDRESS)
-		return -ENODEV;
 
 	memset(&my_param, 0, sizeof(my_param));
 	memset(&my_gbl, 0, sizeof(my_gbl));
@@ -3747,7 +3741,7 @@ int sdram_calibration_full(struct socfpga_sdr *sdr)
 
 	initialize_tracking();
 
-	debug("%s: Preparing to start memory calibration\n", __FILE__);
+	printf("%s: Preparing to start memory calibration\n", __FILE__);
 
 	debug("%s:%d\n", __func__, __LINE__);
 	debug_cond(DLEVEL >= 1,

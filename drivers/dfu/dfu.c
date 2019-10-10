@@ -1,9 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * dfu.c -- DFU back-end routines
  *
  * Copyright (C) 2012 Samsung Electronics
  * author: Lukasz Majewski <l.majewski@samsung.com>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -56,7 +57,7 @@ int dfu_init_env_entities(char *interface, char *devstr)
 {
 	const char *str_env;
 	char *env_bkp;
-	int ret = 0;
+	int ret;
 
 #ifdef CONFIG_SET_DFU_ALT_INFO
 	set_dfu_alt_info(interface, devstr);
@@ -71,13 +72,11 @@ int dfu_init_env_entities(char *interface, char *devstr)
 	ret = dfu_config_entities(env_bkp, interface, devstr);
 	if (ret) {
 		pr_err("DFU entities configuration failed!\n");
-		pr_err("(partition table does not match dfu_alt_info?)\n");
-		goto done;
+		return ret;
 	}
 
-done:
 	free(env_bkp);
-	return ret;
+	return 0;
 }
 
 static unsigned char *dfu_buf;
@@ -464,7 +463,7 @@ int dfu_config_entities(char *env, char *interface, char *devstr)
 		ret = dfu_fill_entity(&dfu[i], s, alt_num_cnt, interface,
 				      devstr);
 		if (ret) {
-			/* We will free "dfu" in dfu_free_entities() */
+			free(dfu);
 			return -1;
 		}
 

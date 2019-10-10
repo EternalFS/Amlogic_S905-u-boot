@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Maintainer : Steve Sakoman <steve@sakoman.com>
  *
@@ -10,13 +9,15 @@
  *
  * (C) Copyright 2004-2008
  * Texas Instruments, <www.ti.com>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 #include <common.h>
 #include <dm.h>
 #include <ns16550.h>
 #include <netdev.h>
 #include <twl4030.h>
-#include <linux/mtd/rawnand.h>
+#include <linux/mtd/nand.h>
 #include <asm/io.h>
 #include <asm/arch/mmc_host_def.h>
 #include <asm/arch/mux.h>
@@ -30,6 +31,8 @@
 #include <usb.h>
 #include <asm/ehci-omap.h>
 #endif
+
+DECLARE_GLOBAL_DATA_PTR;
 
 #define TWL4030_I2C_BUS			0
 #define EXPANSION_EEPROM_I2C_BUS	2

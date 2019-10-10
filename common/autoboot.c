@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -13,7 +14,6 @@
 #include <menu.h>
 #include <post.h>
 #include <u-boot/sha256.h>
-#include <bootcount.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -57,7 +57,7 @@ static int passwd_abort(uint64_t etime)
 	const char *algo_name = "sha256";
 	u_int presskey_len = 0;
 	int abort = 0;
-	int size = sizeof(sha);
+	int size;
 	int ret;
 
 	if (sha_env_str == NULL)
@@ -219,10 +219,14 @@ static int __abortboot(int bootdelay)
 	printf("Hit any key to stop autoboot: %2d ", bootdelay);
 #endif
 
+#ifdef CONFIG_ARCH_ROCKCHIP
+	if (ctrlc()) {	/* we press ctrl+c ? */
+#else
 	/*
 	 * Check if key already pressed
 	 */
 	if (tstc()) {	/* we got a key press	*/
+#endif
 		(void) getc();  /* consume input	*/
 		puts("\b\b\b 0");
 		abort = 1;	/* don't auto boot	*/
@@ -291,8 +295,18 @@ const char *bootdelay_process(void)
 {
 	char *s;
 	int bootdelay;
+#ifdef CONFIG_BOOTCOUNT_LIMIT
+	unsigned long bootcount = 0;
+	unsigned long bootlimit = 0;
+#endif /* CONFIG_BOOTCOUNT_LIMIT */
 
-	bootcount_inc();
+#ifdef CONFIG_BOOTCOUNT_LIMIT
+	bootcount = bootcount_load();
+	bootcount++;
+	bootcount_store(bootcount);
+	env_set_ulong("bootcount", bootcount);
+	bootlimit = env_get_ulong("bootlimit", 10, 0);
+#endif /* CONFIG_BOOTCOUNT_LIMIT */
 
 	s = env_get("bootdelay");
 	bootdelay = s ? (int)simple_strtol(s, NULL, 10) : CONFIG_BOOTDELAY;
@@ -314,9 +328,13 @@ const char *bootdelay_process(void)
 		s = env_get("failbootcmd");
 	} else
 #endif /* CONFIG_POST */
-	if (bootcount_error())
+#ifdef CONFIG_BOOTCOUNT_LIMIT
+	if (bootlimit && (bootcount > bootlimit)) {
+		printf("Warning: Bootlimit (%u) exceeded. Using altbootcmd.\n",
+		       (unsigned)bootlimit);
 		s = env_get("altbootcmd");
-	else
+	} else
+#endif /* CONFIG_BOOTCOUNT_LIMIT */
 		s = env_get("bootcmd");
 
 	process_fdt_options(gd->fdt_blob);

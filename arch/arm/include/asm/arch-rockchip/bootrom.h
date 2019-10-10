@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * (C) Copyright 2017 Heiko Stuebner <heiko@sntech.de>
  * (C) Copyright 2017 Theobroma Systems Design und Consulting GmbH
+ *
+ * SPDX-License-Identifier:	GPL-2.0
  */
 
 #ifndef _ASM_ARCH_BOOTROM_H
@@ -29,9 +30,9 @@ extern u32 SAVE_SP_ADDR;
  */
 enum rockchip_bootrom_cmd {
 	/*
-	 * These can not start at 0, as 0 has a special meaning
-	 * for setjmp().
-	 */
+	* These can not start at 0, as 0 has a special meaning
+	* for setjmp().
+	*/
 
 	BROM_BOOT_NEXTSTAGE = 1,  /* continue boot-sequence */
 	BROM_BOOT_ENTER_DNL,      /* have BROM enter download-mode */
@@ -51,6 +52,8 @@ enum {
 	BROM_BOOTSOURCE_USB = 10,
 	BROM_LAST_BOOTSOURCE = BROM_BOOTSOURCE_USB
 };
+
+extern const char * const boot_devices[BROM_LAST_BOOTSOURCE + 1];
 
 /**
  * Locations of the boot-device identifier in SRAM

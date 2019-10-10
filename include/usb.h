@@ -1,10 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2001
  * Denis Peter, MPL AG Switzerland
  *
  * Adapted for U-Boot driver model
  * (C) Copyright 2015 Google, Inc
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  * Note: Part of this code has been derived from linux
  *
  */
@@ -140,7 +141,7 @@ struct usb_device {
 	int act_len;			/* transferred bytes */
 	int maxchild;			/* Number of ports if hub */
 	int portnr;			/* Port number, 1=first */
-#if !CONFIG_IS_ENABLED(DM_USB)
+#ifndef CONFIG_DM_USB
 	/* parent hub, or NULL if this is the root hub */
 	struct usb_device *parent;
 	struct usb_device *children[USB_MAXCHILDREN];
@@ -148,7 +149,7 @@ struct usb_device {
 #endif
 	/* slot_id - for xHCI enabled devices */
 	unsigned int slot_id;
-#if CONFIG_IS_ENABLED(DM_USB)
+#ifdef CONFIG_DM_USB
 	struct udevice *dev;		/* Pointer to associated device */
 	struct udevice *controller_dev;	/* Pointer to associated controller */
 #endif
@@ -173,7 +174,7 @@ enum usb_init_type {
 int usb_lowlevel_init(int index, enum usb_init_type init, void **controller);
 int usb_lowlevel_stop(int index);
 
-#if defined(CONFIG_USB_MUSB_HOST) || CONFIG_IS_ENABLED(DM_USB)
+#if defined(CONFIG_USB_MUSB_HOST) || defined(CONFIG_DM_USB)
 int usb_reset_root_port(struct usb_device *dev);
 #else
 #define usb_reset_root_port(dev)
@@ -187,7 +188,7 @@ int submit_int_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 			int transfer_len, int interval);
 
 #if defined CONFIG_USB_EHCI_HCD || defined CONFIG_USB_MUSB_HOST \
-	|| CONFIG_IS_ENABLED(DM_USB)
+	|| defined(CONFIG_DM_USB)
 struct int_queue *create_int_queue(struct usb_device *dev, unsigned long pipe,
 	int queuesize, int elementsize, void *buffer, int interval);
 int destroy_int_queue(struct usb_device *dev, struct int_queue *queue);
@@ -588,7 +589,7 @@ struct usb_hub_device {
 	struct usb_tt tt;		/* Transaction Translator */
 };
 
-#if CONFIG_IS_ENABLED(DM_USB)
+#ifdef CONFIG_DM_USB
 /**
  * struct usb_platdata - Platform data about a USB controller
  *
@@ -649,18 +650,6 @@ struct usb_bus_priv {
 	int next_addr;
 	bool desc_before_addr;
 	bool companion;
-};
-
-/**
- * struct usb_emul_platdata - platform data about the USB emulator
- *
- * Given a USB emulator (UCLASS_USB_EMUL) 'dev', this is
- * dev_get_uclass_platdata(dev).
- *
- * @port1:	USB emulator device port number on the parent hub
- */
-struct usb_emul_platdata {
-	int port1;	/* Port number (numbered from 1) */
 };
 
 /**
@@ -912,7 +901,7 @@ int usb_setup_ehci_gadget(struct ehci_ctrl **ctlrp);
  */
 void usb_stor_reset(void);
 
-#else /* !CONFIG_IS_ENABLED(DM_USB) */
+#else /* !CONFIG_DM_USB */
 
 struct usb_device *usb_get_dev_index(int index);
 
@@ -987,6 +976,7 @@ int usb_get_max_xfer_size(struct usb_device *dev, size_t *size);
  * the USB emulation uclass about the features of the emulator.
  *
  * @dev:		Emulation device
+ * @maxpacketsize:	Maximum packet size (e.g. PACKET_SIZE_64)
  * @strings:		List of USB string descriptors, terminated by a NULL
  *			entry
  * @desc_list:		List of points or USB descriptors, terminated by NULL.
@@ -994,8 +984,8 @@ int usb_get_max_xfer_size(struct usb_device *dev, size_t *size);
  *			and others follow on after that.
  * @return 0 if OK, -ENOSYS if not implemented, other -ve on error
  */
-int usb_emul_setup_device(struct udevice *dev, struct usb_string *strings,
-			  void **desc_list);
+int usb_emul_setup_device(struct udevice *dev, int maxpacketsize,
+			  struct usb_string *strings, void **desc_list);
 
 /**
  * usb_emul_control() - Send a control packet to an emulator
@@ -1034,20 +1024,19 @@ int usb_emul_int(struct udevice *emul, struct usb_device *udev,
 /**
  * usb_emul_find() - Find an emulator for a particular device
  *
- * Check @pipe and @port1 to find a device number on bus @bus and return it.
+ * Check @pipe to find a device number on bus @bus and return it.
  *
  * @bus:	USB bus (controller)
  * @pipe:	Describes pipe being used, and includes the device number
- * @port1:	Describes port number on the parent hub
  * @emulp:	Returns pointer to emulator, or NULL if not found
  * @return 0 if found, -ve on error
  */
-int usb_emul_find(struct udevice *bus, ulong pipe, int port1,
-		  struct udevice **emulp);
+int usb_emul_find(struct udevice *bus, ulong pipe, struct udevice **emulp);
 
 /**
  * usb_emul_find_for_dev() - Find an emulator for a particular device
  *
+ * @bus:	USB bus (controller)
  * @dev:	USB device to check
  * @emulp:	Returns pointer to emulator, or NULL if not found
  * @return 0 if found, -ve on error
@@ -1055,15 +1044,12 @@ int usb_emul_find(struct udevice *bus, ulong pipe, int port1,
 int usb_emul_find_for_dev(struct udevice *dev, struct udevice **emulp);
 
 /**
- * usb_emul_find_descriptor() - Find a USB descriptor of a particular device
+ * usb_emul_reset() - Reset all emulators ready for use
  *
- * @ptr:	a pointer to a list of USB descriptor pointers
- * @type:	type of USB descriptor to find
- * @index:	if @type is USB_DT_CONFIG, this is the configuration value
- * @return a pointer to the USB descriptor found, NULL if not found
+ * Clear out any address information in the emulators and make then ready for
+ * a new USB scan
  */
-struct usb_generic_descriptor **usb_emul_find_descriptor(
-		struct usb_generic_descriptor **ptr, int type, int index);
+void usb_emul_reset(struct udevice *dev);
 
 /**
  * usb_show_tree() - show the USB device tree

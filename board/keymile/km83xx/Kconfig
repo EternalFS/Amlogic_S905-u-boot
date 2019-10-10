@@ -1,4 +1,4 @@
-if TARGET_KMETER1
+if TARGET_KM8360
 
 config SYS_BOARD
 	default "km83xx"
@@ -7,46 +7,7 @@ config SYS_VENDOR
 	default "keymile"
 
 config SYS_CONFIG_NAME
-	default "kmeter1"
-
-endif
-
-if TARGET_KMCOGE5NE
-
-config SYS_BOARD
-	default "km83xx"
-
-config SYS_VENDOR
-	default "keymile"
-
-config SYS_CONFIG_NAME
-	default "kmcoge5ne"
-
-endif
-
-if TARGET_KMVECT1
-
-config SYS_BOARD
-	default "km83xx"
-
-config SYS_VENDOR
-	default "keymile"
-
-config SYS_CONFIG_NAME
-	default "kmvect1"
-
-endif
-
-if TARGET_KMTEGR1
-
-config SYS_BOARD
-	default "km83xx"
-
-config SYS_VENDOR
-	default "keymile"
-
-config SYS_CONFIG_NAME
-	default "kmtegr1"
+	default "km8360"
 
 endif
 
@@ -73,57 +34,5 @@ config SYS_VENDOR
 
 config SYS_CONFIG_NAME
 	default "tuxx1"
-
-endif
-
-if TARGET_KMSUPX5
-
-config SYS_BOARD
-	default "km83xx"
-
-config SYS_VENDOR
-	default "keymile"
-
-config SYS_CONFIG_NAME
-	default "kmsupx5"
-
-endif
-
-if TARGET_TUGE1
-
-config SYS_BOARD
-	default "km83xx"
-
-config SYS_VENDOR
-	default "keymile"
-
-config SYS_CONFIG_NAME
-	default "tuge1"
-
-endif
-
-if TARGET_KMOPTI2
-
-config SYS_BOARD
-	default "km83xx"
-
-config SYS_VENDOR
-	default "keymile"
-
-config SYS_CONFIG_NAME
-	default "kmopti2"
-
-endif
-
-if TARGET_KMTEPR2
-
-config SYS_BOARD
-	default "km83xx"
-
-config SYS_VENDOR
-	default "keymile"
-
-config SYS_CONFIG_NAME
-	default "kmtepr2"
 
 endif

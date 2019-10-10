@@ -11,17 +11,16 @@
  * from hush: simple_itoa() was lifted from boa-0.93.15
  */
 
-#include <common.h>
-#include <charset.h>
-#include <efi_loader.h>
-#include <div64.h>
-#include <hexdump.h>
 #include <stdarg.h>
-#include <linux/ctype.h>
-#include <linux/err.h>
 #include <linux/types.h>
 #include <linux/string.h>
+#include <linux/ctype.h>
 
+#include <common.h>
+#include <charset.h>
+#include <uuid.h>
+
+#include <div64.h>
 #define noinline __attribute__((noinline))
 
 /* we use this so that we can do without the ctype library */
@@ -273,51 +272,38 @@ static char *string(char *buf, char *end, char *s, int field_width,
 	return buf;
 }
 
-/* U-Boot uses UTF-16 strings in the EFI context only. */
-#if CONFIG_IS_ENABLED(EFI_LOADER) && !defined(API_BUILD)
 static char *string16(char *buf, char *end, u16 *s, int field_width,
 		int precision, int flags)
 {
-	const u16 *str = s ? s : L"<NULL>";
-	ssize_t i, len = utf16_strnlen(str, precision);
+	u16 *str = s ? s : L"<NULL>";
+	int utf16_len = utf16_strnlen(str, precision);
+	u8 utf8[utf16_len * MAX_UTF8_PER_UTF16];
+	int utf8_len, i;
+
+	utf8_len = utf16_to_utf8(utf8, str, utf16_len) - utf8;
 
 	if (!(flags & LEFT))
-		for (; len < field_width; --field_width)
+		while (utf8_len < field_width--)
 			ADDCH(buf, ' ');
-	for (i = 0; i < len && buf + utf16_utf8_strnlen(str, 1) <= end; ++i) {
-		s32 s = utf16_get(&str);
-
-		if (s < 0)
-			s = '?';
-		utf8_put(s, &buf);
-	}
-	for (; len < field_width; --field_width)
+	for (i = 0; i < utf8_len; ++i)
+		ADDCH(buf, utf8[i]);
+	while (utf8_len < field_width--)
 		ADDCH(buf, ' ');
 	return buf;
 }
 
-#if CONFIG_IS_ENABLED(EFI_DEVICE_PATH_TO_TEXT)
-static char *device_path_string(char *buf, char *end, void *dp, int field_width,
-				int precision, int flags)
+#ifdef CONFIG_CMD_NET
+static const char hex_asc[] = "0123456789abcdef";
+#define hex_asc_lo(x)	hex_asc[((x) & 0x0f)]
+#define hex_asc_hi(x)	hex_asc[((x) & 0xf0) >> 4]
+
+static inline char *pack_hex_byte(char *buf, u8 byte)
 {
-	u16 *str;
-
-	/* If dp == NULL output the string '<NULL>' */
-	if (!dp)
-		return string16(buf, end, dp, field_width, precision, flags);
-
-	str = efi_dp_str((struct efi_device_path *)dp);
-	if (!str)
-		return ERR_PTR(-ENOMEM);
-
-	buf = string16(buf, end, str, field_width, precision, flags);
-	efi_free_pool(str);
+	*buf++ = hex_asc_hi(byte);
+	*buf++ = hex_asc_lo(byte);
 	return buf;
 }
-#endif
-#endif
 
-#ifdef CONFIG_CMD_NET
 static char *mac_address_string(char *buf, char *end, u8 *addr, int field_width,
 				int precision, int flags)
 {
@@ -327,7 +313,7 @@ static char *mac_address_string(char *buf, char *end, u8 *addr, int field_width,
 	int i;
 
 	for (i = 0; i < 6; i++) {
-		p = hex_byte_pack(p, addr[i]);
+		p = pack_hex_byte(p, addr[i]);
 		if (!(flags & SPECIAL) && i != 5)
 			*p++ = ':';
 	}
@@ -346,8 +332,8 @@ static char *ip6_addr_string(char *buf, char *end, u8 *addr, int field_width,
 	int i;
 
 	for (i = 0; i < 8; i++) {
-		p = hex_byte_pack(p, addr[2 * i]);
-		p = hex_byte_pack(p, addr[2 * i + 1]);
+		p = pack_hex_byte(p, addr[2 * i]);
+		p = pack_hex_byte(p, addr[2 * i + 1]);
 		if (!(flags & SPECIAL) && i != 7)
 			*p++ = ':';
 	}
@@ -409,10 +395,7 @@ static char *uuid_string(char *buf, char *end, u8 *addr, int field_width,
 		break;
 	}
 
-	if (addr)
-		uuid_bin_to_str(addr, uuid, str_format);
-	else
-		strcpy(uuid, "<NULL>");
+	uuid_bin_to_str(addr, uuid, str_format);
 
 	return string(buf, end, uuid, field_width, precision, flags);
 }
@@ -452,12 +435,7 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 #endif
 
 	switch (*fmt) {
-/* Device paths only exist in the EFI context. */
-#if CONFIG_IS_ENABLED(EFI_DEVICE_PATH_TO_TEXT) && !defined(API_BUILD)
-	case 'D':
-		return device_path_string(buf, end, ptr, field_width,
-					  precision, flags);
-#endif
+#ifdef CONFIG_CMD_NET
 	case 'a':
 		flags |= SPECIAL | ZEROPAD;
 
@@ -469,7 +447,6 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 			break;
 		}
 		break;
-#ifdef CONFIG_CMD_NET
 	case 'm':
 		flags |= SPECIAL;
 		/* Fallthrough */
@@ -614,14 +591,10 @@ repeat:
 			continue;
 
 		case 's':
-/* U-Boot uses UTF-16 strings in the EFI context only. */
-#if CONFIG_IS_ENABLED(EFI_LOADER) && !defined(API_BUILD)
-			if (qualifier == 'l') {
+			if (qualifier == 'l' && !IS_ENABLED(CONFIG_SPL_BUILD)) {
 				str = string16(str, end, va_arg(args, u16 *),
 					       field_width, precision, flags);
-			} else
-#endif
-			{
+			} else {
 				str = string(str, end, va_arg(args, char *),
 					     field_width, precision, flags);
 			}
@@ -631,8 +604,6 @@ repeat:
 			str = pointer(fmt + 1, str, end,
 					va_arg(args, void *),
 					field_width, precision, flags);
-			if (IS_ERR(str))
-				return PTR_ERR(str);
 			/* Skip all alphanumeric pointer suffixes */
 			while (isalnum(fmt[1]))
 				fmt++;
@@ -782,7 +753,6 @@ int sprintf(char *buf, const char *fmt, ...)
 	return i;
 }
 
-#if CONFIG_IS_ENABLED(PRINTF)
 int printf(const char *fmt, ...)
 {
 	va_list args;
@@ -798,9 +768,6 @@ int printf(const char *fmt, ...)
 	i = vscnprintf(printbuffer, sizeof(printbuffer), fmt, args);
 	va_end(args);
 
-	/* Handle error */
-	if (i <= 0)
-		return i;
 	/* Print the string */
 	puts(printbuffer);
 	return i;
@@ -817,14 +784,19 @@ int vprintf(const char *fmt, va_list args)
 	 */
 	i = vscnprintf(printbuffer, sizeof(printbuffer), fmt, args);
 
-	/* Handle error */
-	if (i <= 0)
-		return i;
 	/* Print the string */
 	puts(printbuffer);
 	return i;
 }
-#endif
+
+
+void __assert_fail(const char *assertion, const char *file, unsigned line,
+		   const char *function)
+{
+	/* This will not return */
+	panic("%s:%u: %s: Assertion `%s' failed.", file, line, function,
+	      assertion);
+}
 
 char *simple_itoa(ulong i)
 {

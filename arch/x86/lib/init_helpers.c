@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2011
  * Graeme Russ, <graeme.russ@gmail.com>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -18,10 +19,7 @@ __weak ulong board_get_usable_ram_top(ulong total_size)
 
 int init_cache_f_r(void)
 {
-#if (CONFIG_IS_ENABLED(X86_32BIT_INIT) || \
-     (!defined(CONFIG_SPL_BUILD) && \
-      !CONFIG_IS_ENABLED(CONFIG_X86_RUN_64BIT))) && \
-    !defined(CONFIG_HAVE_FSP)
+#if CONFIG_IS_ENABLED(X86_32BIT_INIT) && !defined(CONFIG_HAVE_FSP)
 	int ret;
 
 	ret = mtrr_commit(false);

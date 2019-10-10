@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  *  Copyright (C) 2014-2015 Samsung Electronics
  *  Przemyslaw Marczak <p.marczak@samsung.com>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef _INCLUDE_REGULATOR_H_
@@ -150,7 +151,6 @@ enum regulator_flag {
  * @always_on* - bool type, true or false
  * @boot_on*   - bool type, true or false
  * TODO(sjg@chromium.org): Consider putting the above two into @flags
- * @ramp_delay - Time to settle down after voltage change (unit: uV/us)
  * @flags:     - flags value (see REGULATOR_FLAG_...)
  * @name**     - fdt regulator name - should be taken from the device tree
  * ctrl_reg:   - Control register offset used to enable/disable regulator
@@ -168,15 +168,18 @@ struct dm_regulator_uclass_platdata {
 	int mode_count;
 	int min_uV;
 	int max_uV;
+	int init_uV;
 	int min_uA;
 	int max_uA;
-	unsigned int ramp_delay;
 	bool always_on;
 	bool boot_on;
 	const char *name;
 	int flags;
 	u8 ctrl_reg;
 	u8 volt_reg;
+	bool suspend_on;
+	u32 suspend_uV;
+	u32 ramp_delay;
 };
 
 /* Regulator device operations */
@@ -192,6 +195,8 @@ struct dm_regulator_ops {
 	 */
 	int (*get_value)(struct udevice *dev);
 	int (*set_value)(struct udevice *dev, int uV);
+	int (*set_suspend_value)(struct udevice *dev, int uV);
+	int (*get_suspend_value)(struct udevice *dev);
 
 	/**
 	 * The regulator output current function calls operates on a micro Amps.
@@ -216,6 +221,8 @@ struct dm_regulator_ops {
 	 */
 	int (*get_enable)(struct udevice *dev);
 	int (*set_enable)(struct udevice *dev, bool enable);
+	int (*set_suspend_enable)(struct udevice *dev, bool enable);
+	int (*get_suspend_enable)(struct udevice *dev);
 
 	/**
 	 * The 'get/set_mode()' function calls should operate on a driver-
@@ -233,6 +240,15 @@ struct dm_regulator_ops {
 	 */
 	int (*get_mode)(struct udevice *dev);
 	int (*set_mode)(struct udevice *dev, int mode_id);
+
+	/**
+	 * The regulator voltage set ramp delay
+	 *
+	 * @dev            - regulator device
+	 * @ramp_delay     - ramp delay [uV/uS]
+	 * @return zero on success and other failed.
+	 */
+	int (*set_ramp_delay)(struct udevice *dev, u32 ramp_delay);
 };
 
 /**
@@ -260,6 +276,23 @@ int regulator_get_value(struct udevice *dev);
  * @return - 0 on success or -errno val if fails
  */
 int regulator_set_value(struct udevice *dev, int uV);
+
+/**
+ * regulator_set_suspend_value: set the suspend microvoltage value of a given regulator.
+ *
+ * @dev    - pointer to the regulator device
+ * @uV     - the output suspend value to set [micro Volts]
+ * @return - 0 on success or -errno val if fails
+ */
+int regulator_set_suspend_value(struct udevice *dev, int uV);
+
+/**
+ * regulator_get_suspend_value: get the suspend microvoltage value of a given regulator.
+ *
+ * @dev    - pointer to the regulator device
+ * @return - positive output value [uV] on success or negative errno if fail.
+ */
+int regulator_get_suspend_value(struct udevice *dev);
 
 /**
  * regulator_set_value_force: set the microvoltage value of a given regulator
@@ -306,15 +339,21 @@ int regulator_get_enable(struct udevice *dev);
 int regulator_set_enable(struct udevice *dev, bool enable);
 
 /**
- * regulator_set_enable_if_allowed: set regulator enable state if allowed by
- *					regulator
+ * regulator_set_suspend_enable: set regulator suspend enable state
  *
  * @dev    - pointer to the regulator device
  * @enable - set true or false
- * @return - 0 on success or if enabling is not supported
- *	     -errno val if fails.
+ * @return - 0 on success or -errno val if fails
  */
-int regulator_set_enable_if_allowed(struct udevice *dev, bool enable);
+int regulator_set_suspend_enable(struct udevice *dev, bool enable);
+
+/**
+ * regulator_get_suspend_enable: get regulator suspend enable state
+ *
+ * @dev    - pointer to the regulator device
+ * @return - 0 on success or -errno val if fails
+ */
+int regulator_get_suspend_enable(struct udevice *dev);
 
 /**
  * regulator_get_mode: get active operation mode id of a given regulator

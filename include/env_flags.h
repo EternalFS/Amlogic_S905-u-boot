@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2012
  * Joe Hershberger, National Instruments, joe.hershberger@ni.com
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __ENV_FLAGS_H__
@@ -38,7 +39,7 @@ enum env_flags_varaccess {
 
 #ifdef CONFIG_CMD_NET
 #ifdef CONFIG_REGEX
-#define ETHADDR_WILDCARD "\\d*"
+#define ETHADDR_WILDCARD "\\d?"
 #else
 #define ETHADDR_WILDCARD
 #endif

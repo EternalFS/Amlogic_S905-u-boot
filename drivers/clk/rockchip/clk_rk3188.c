@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * (C) Copyright 2015 Google, Inc
  * (C) Copyright 2016 Heiko Stuebner <heiko@sntech.de>
+ *
+ * SPDX-License-Identifier:	GPL-2.0
  */
 
 #include <common.h>
@@ -12,15 +13,18 @@
 #include <mapmem.h>
 #include <syscon.h>
 #include <asm/io.h>
-#include <asm/arch-rockchip/clock.h>
-#include <asm/arch-rockchip/cru_rk3188.h>
-#include <asm/arch-rockchip/grf_rk3188.h>
-#include <asm/arch-rockchip/hardware.h>
+#include <asm/arch/clock.h>
+#include <asm/arch/cru_rk3188.h>
+#include <asm/arch/grf_rk3188.h>
+#include <asm/arch/hardware.h>
+#include <bitfield.h>
 #include <dt-bindings/clock/rk3188-cru.h>
 #include <dm/device-internal.h>
 #include <dm/lists.h>
 #include <dm/uclass-internal.h>
 #include <linux/log2.h>
+
+DECLARE_GLOBAL_DATA_PTR;
 
 enum rk3188_clk_type {
 	RK3188_CRU,
@@ -120,7 +124,7 @@ static int rkclk_configure_ddr(struct rk3188_cru *cru, struct rk3188_grf *grf,
 			       unsigned int hz, bool has_bwadj)
 {
 	static const struct pll_div dpll_cfg[] = {
-		{.nf = 75, .nr = 1, .no = 6},
+		{.nf = 25, .nr = 2, .no = 1},
 		{.nf = 400, .nr = 9, .no = 2},
 		{.nf = 500, .nr = 9, .no = 2},
 		{.nf = 100, .nr = 3, .no = 1},
@@ -368,6 +372,30 @@ static ulong rockchip_spi_set_clk(struct rk3188_cru *cru, uint gclk_rate,
 	return rockchip_spi_get_clk(cru, gclk_rate, periph);
 }
 
+static ulong rk3188_saradc_get_clk(struct rk3188_cru *cru)
+{
+	u32 div, val;
+
+	val = readl(&cru->cru_clksel_con[24]);
+	div = bitfield_extract(val, SARADC_DIV_SHIFT, SARADC_DIV_WIDTH);
+
+	return DIV_TO_RATE(OSC_HZ, div);
+}
+
+static ulong rk3188_saradc_set_clk(struct rk3188_cru *cru, uint hz)
+{
+	int src_clk_div;
+
+	src_clk_div = DIV_ROUND_UP(OSC_HZ, hz) - 1;
+	assert(src_clk_div < 128);
+
+	rk_clrsetreg(&cru->cru_clksel_con[24],
+		     SARADC_DIV_MASK,
+		     src_clk_div << SARADC_DIV_SHIFT);
+
+	return rk3188_saradc_get_clk(cru);
+}
+
 #ifdef CONFIG_SPL_BUILD
 static void rkclk_init(struct rk3188_cru *cru, struct rk3188_grf *grf,
 		       bool has_bwadj)
@@ -485,6 +513,8 @@ static ulong rk3188_clk_get_rate(struct clk *clk)
 	case PCLK_I2C3:
 	case PCLK_I2C4:
 		return gclk_rate;
+	case SCLK_SARADC:
+                new_rate =  rk3188_saradc_get_clk(priv->cru);
 	default:
 		return -ENOENT;
 	}
@@ -520,6 +550,9 @@ static ulong rk3188_clk_set_rate(struct clk *clk, ulong rate)
 	case SCLK_SPI1:
 		new_rate = rockchip_spi_set_clk(cru, PERI_PCLK_HZ,
 						clk->id, rate);
+		break;
+	case SCLK_SARADC:
+		new_rate = rk3188_saradc_set_clk(priv->cru, rate);
 		break;
 	default:
 		return -ENOENT;
@@ -570,8 +603,9 @@ static int rk3188_clk_probe(struct udevice *dev)
 static int rk3188_clk_bind(struct udevice *dev)
 {
 	int ret;
-	struct udevice *sys_child;
+	struct udevice *sys_child, *sf_child;
 	struct sysreset_reg *priv;
+	struct softreset_reg *sf_priv;
 
 	/* The reset driver does not have a device node, so bind it here */
 	ret = device_bind_driver(dev, "rockchip_sysreset", "sysreset",
@@ -587,12 +621,17 @@ static int rk3188_clk_bind(struct udevice *dev)
 		sys_child->priv = priv;
 	}
 
-#if CONFIG_IS_ENABLED(CONFIG_RESET_ROCKCHIP)
-	ret = offsetof(struct rk3188_cru, cru_softrst_con[0]);
-	ret = rockchip_reset_bind(dev, ret, 9);
-	if (ret)
-		debug("Warning: software reset driver bind faile\n");
-#endif
+	ret = device_bind_driver_to_node(dev, "rockchip_reset", "reset",
+					 dev_ofnode(dev), &sf_child);
+	if (ret) {
+		debug("Warning: No rockchip reset driver: ret=%d\n", ret);
+	} else {
+		sf_priv = malloc(sizeof(struct softreset_reg));
+		sf_priv->sf_reset_offset = offsetof(struct rk3188_cru,
+						    cru_softrst_con[0]);
+		sf_priv->sf_reset_num = 9;
+		sf_child->priv = sf_priv;
+	}
 
 	return 0;
 }

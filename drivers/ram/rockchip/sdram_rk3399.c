@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
 /*
  * (C) Copyright 2016-2017 Rockchip Inc.
+ *
+ * SPDX-License-Identifier:     GPL-2.0
  *
  * Adapted from coreboot.
  */
@@ -13,15 +14,16 @@
 #include <regmap.h>
 #include <syscon.h>
 #include <asm/io.h>
-#include <asm/arch-rockchip/clock.h>
-#include <asm/arch-rockchip/sdram_common.h>
-#include <asm/arch-rockchip/sdram_rk3399.h>
-#include <asm/arch-rockchip/cru_rk3399.h>
-#include <asm/arch-rockchip/grf_rk3399.h>
-#include <asm/arch-rockchip/hardware.h>
+#include <asm/arch/clock.h>
+#include <asm/arch/sdram_common.h>
+#include <asm/arch/sdram_rk3399.h>
+#include <asm/arch/cru_rk3399.h>
+#include <asm/arch/grf_rk3399.h>
+#include <asm/arch/hardware.h>
 #include <linux/err.h>
 #include <time.h>
 
+DECLARE_GLOBAL_DATA_PTR;
 struct chan_info {
 	struct rk3399_ddr_pctl_regs *pctl;
 	struct rk3399_ddr_pi_regs *pi;
@@ -30,8 +32,7 @@ struct chan_info {
 };
 
 struct dram_info {
-#if defined(CONFIG_TPL_BUILD) || \
-	(!defined(CONFIG_TPL) && defined(CONFIG_SPL_BUILD))
+#ifdef CONFIG_SPL_BUILD
 	struct chan_info chan[2];
 	struct clk ddr_clk;
 	struct rk3399_cru *cru;
@@ -56,8 +57,7 @@ struct dram_info {
 #define PHY_DRV_ODT_40		0xe
 #define PHY_DRV_ODT_34_3	0xf
 
-#if defined(CONFIG_TPL_BUILD) || \
-	(!defined(CONFIG_TPL) && defined(CONFIG_SPL_BUILD))
+#ifdef CONFIG_SPL_BUILD
 
 struct rockchip_dmc_plat {
 #if CONFIG_IS_ENABLED(OF_PLATDATA)
@@ -1015,7 +1015,6 @@ static int switch_to_phy_index1(struct dram_info *dram,
 	writel(RK_CLRSETBITS(1 << 1, 1 << 1), &dram->cic->cic_ctrl0);
 	while (!(readl(&dram->cic->cic_status0) & (1 << 0))) {
 		mdelay(10);
-		i++;
 		if (i > 10) {
 			debug("index1 frequency done overtime\n");
 			return -ETIME;
@@ -1100,7 +1099,7 @@ static int rk3399_dmc_ofdata_to_platdata(struct udevice *dev)
 		       __func__, ret);
 		return ret;
 	}
-	ret = regmap_init_mem(dev_ofnode(dev), &plat->map);
+	ret = regmap_init_mem(dev, &plat->map);
 	if (ret)
 		printf("%s: regmap failed %d\n", __func__, ret);
 
@@ -1189,8 +1188,7 @@ static int rk3399_dmc_init(struct udevice *dev)
 
 static int rk3399_dmc_probe(struct udevice *dev)
 {
-#if defined(CONFIG_TPL_BUILD) || \
-	(!defined(CONFIG_TPL) && defined(CONFIG_SPL_BUILD))
+#ifdef CONFIG_SPL_BUILD
 	if (rk3399_dmc_init(dev))
 		return 0;
 #else
@@ -1229,14 +1227,12 @@ U_BOOT_DRIVER(dmc_rk3399) = {
 	.id = UCLASS_RAM,
 	.of_match = rk3399_dmc_ids,
 	.ops = &rk3399_dmc_ops,
-#if defined(CONFIG_TPL_BUILD) || \
-	(!defined(CONFIG_TPL) && defined(CONFIG_SPL_BUILD))
+#ifdef CONFIG_SPL_BUILD
 	.ofdata_to_platdata = rk3399_dmc_ofdata_to_platdata,
 #endif
 	.probe = rk3399_dmc_probe,
 	.priv_auto_alloc_size = sizeof(struct dram_info),
-#if defined(CONFIG_TPL_BUILD) || \
-	(!defined(CONFIG_TPL) && defined(CONFIG_SPL_BUILD))
+#ifdef CONFIG_SPL_BUILD
 	.platdata_auto_alloc_size = sizeof(struct rockchip_dmc_plat),
 #endif
 };

@@ -1,20 +1,21 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2016 Rockchip Electronics Co., Ltd
+ *
+ * SPDX-License-Identifier:     GPL-2.0+
  */
 
 #include <common.h>
-#include <spl_gpio.h>
 #include <asm/armv8/mmu.h>
+#include <asm/arch/bootrom.h>
+#include <asm/arch/grf_rk3399.h>
+#include <asm/arch/hardware.h>
 #include <asm/io.h>
-#include <asm/arch-rockchip/gpio.h>
-#include <asm/arch-rockchip/grf_rk3399.h>
-#include <asm/arch-rockchip/hardware.h>
+#include <syscon.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
 #define GRF_EMMCCORE_CON11 0xff77f02c
-#define GRF_BASE	0xff770000
+#define PMU_GRF_SOC_CON0   0xff320180
 
 static struct mm_region rk3399_mem_map[] = {
 	{
@@ -38,39 +39,75 @@ static struct mm_region rk3399_mem_map[] = {
 
 struct mm_region *mem_map = rk3399_mem_map;
 
-int dram_init_banksize(void)
+const char * const boot_devices[BROM_LAST_BOOTSOURCE + 1] = {
+	[BROM_BOOTSOURCE_EMMC] = "/sdhci@fe330000",
+	[BROM_BOOTSOURCE_SPINOR] = "/spi@ff1d0000",
+	[BROM_BOOTSOURCE_SD] = "/dwmmc@fe320000",
+};
+
+#ifdef CONFIG_SPL_BUILD
+
+#define TIMER_CHN10_BASE	0xff8680a0
+#define TIMER_END_COUNT_L	0x00
+#define TIMER_END_COUNT_H	0x04
+#define TIMER_INIT_COUNT_L	0x10
+#define TIMER_INIT_COUNT_H	0x14
+#define TIMER_CONTROL_REG	0x1c
+
+#define TIMER_EN	0x1
+#define	TIMER_FMODE	(0 << 1)
+#define	TIMER_RMODE	(1 << 1)
+
+void rockchip_stimer_init(void)
 {
-	size_t max_size = min((unsigned long)gd->ram_size, gd->ram_top);
-
-	/* Reserve 0x200000 for ATF bl31 */
-	gd->bd->bi_dram[0].start = 0x200000;
-	gd->bd->bi_dram[0].size = max_size - gd->bd->bi_dram[0].start;
-
-	return 0;
+	writel(0xffffffff, TIMER_CHN10_BASE + TIMER_END_COUNT_L);
+	writel(0xffffffff, TIMER_CHN10_BASE + TIMER_END_COUNT_H);
+	writel(0, TIMER_CHN10_BASE + TIMER_INIT_COUNT_L);
+	writel(0, TIMER_CHN10_BASE + TIMER_INIT_COUNT_H);
+	writel(TIMER_EN | TIMER_FMODE, TIMER_CHN10_BASE + TIMER_CONTROL_REG);
 }
+#endif
+
+#define GRF_BASE	0xff770000
+#define PMUGRF_BASE	0xff320000
+#define PMUSGRF_BASE	0xff330000
 
 int arch_cpu_init(void)
 {
-	/* We do some SoC one time setting here. */
+	struct rk3399_pmugrf_regs *pmugrf = (void *)PMUGRF_BASE;
 	struct rk3399_grf_regs * const grf = (void *)GRF_BASE;
 
-	/* Emmc clock generator: disable the clock multipilier */
+	/* We do some SoC one time setting here. */
+
+#ifdef CONFIG_SPL_BUILD
+	struct rk3399_pmusgrf_regs *sgrf = (void *)PMUSGRF_BASE;
+
+	/*
+	 * Disable DDR and SRAM security regions.
+	 *
+	 * As we are entered from the BootROM, the region from
+	 * 0x0 through 0xfffff (i.e. the first MB of memory) will
+	 * be protected. This will cause issues with the DW_MMC
+	 * driver, which tries to DMA from/to the stack (likely)
+	 * located in this range.
+	 */
+	rk_clrsetreg(&sgrf->ddr_rgn_con[16], 0x1ff, 0);
+	rk_clrreg(&sgrf->slv_secure_con4, 0x2000);
+#endif
+
+	/* eMMC clock generator: disable the clock multipilier */
 	rk_clrreg(&grf->emmccore_con[11], 0x0ff);
+
+	/* PWM3 select pwm3a io */
+	rk_clrreg(&pmugrf->soc_con0, 1 << 5);
 
 	return 0;
 }
 
-#ifdef CONFIG_DEBUG_UART_BOARD_INIT
 void board_debug_uart_init(void)
 {
 #define GRF_BASE	0xff770000
-#define GPIO0_BASE	0xff720000
-#define PMUGRF_BASE	0xff320000
 	struct rk3399_grf_regs * const grf = (void *)GRF_BASE;
-#ifdef CONFIG_TARGET_CHROMEBOOK_BOB
-	struct rk3399_pmugrf_regs * const pmugrf = (void *)PMUGRF_BASE;
-	struct rockchip_gpio_regs * const gpio = (void *)GPIO0_BASE;
-#endif
 
 #if defined(CONFIG_DEBUG_UART_BASE) && (CONFIG_DEBUG_UART_BASE == 0xff180000)
 	/* Enable early UART0 on the RK3399 */
@@ -80,29 +117,7 @@ void board_debug_uart_init(void)
 	rk_clrsetreg(&grf->gpio2c_iomux,
 		     GRF_GPIO2C1_SEL_MASK,
 		     GRF_UART0BT_SOUT << GRF_GPIO2C1_SEL_SHIFT);
-#elif defined(CONFIG_DEBUG_UART_BASE) && (CONFIG_DEBUG_UART_BASE == 0xff1B0000)
-	/* Enable early UART3 on the RK3399 */
-	rk_clrsetreg(&grf->gpio3b_iomux,
-		     GRF_GPIO3B6_SEL_MASK,
-		     GRF_UART3_SIN << GRF_GPIO3B6_SEL_SHIFT);
-	rk_clrsetreg(&grf->gpio3b_iomux,
-		     GRF_GPIO3B7_SEL_MASK,
-		     GRF_UART3_SOUT << GRF_GPIO3B7_SEL_SHIFT);
 #else
-# ifdef CONFIG_TARGET_CHROMEBOOK_BOB
-	rk_setreg(&grf->io_vsel, 1 << 0);
-
-	/*
-	 * Let's enable these power rails here, we are already running the SPI
-	 * Flash based code.
-	 */
-	spl_gpio_output(gpio, GPIO(BANK_B, 2), 1);  /* PP1500_EN */
-	spl_gpio_set_pull(&pmugrf->gpio0_p, GPIO(BANK_B, 2), GPIO_PULL_NORMAL);
-
-	spl_gpio_output(gpio, GPIO(BANK_B, 4), 1);  /* PP3000_EN */
-	spl_gpio_set_pull(&pmugrf->gpio0_p, GPIO(BANK_B, 4), GPIO_PULL_NORMAL);
-#endif /* CONFIG_TARGET_CHROMEBOOK_BOB */
-
 	/* Enable early UART2 channel C on the RK3399 */
 	rk_clrsetreg(&grf->gpio4c_iomux,
 		     GRF_GPIO4C3_SEL_MASK,
@@ -116,4 +131,3 @@ void board_debug_uart_init(void)
 		     GRF_UART_DBG_SEL_C << GRF_UART_DBG_SEL_SHIFT);
 #endif
 }
-#endif

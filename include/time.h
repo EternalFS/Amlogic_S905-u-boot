@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/*
+ * SPDX-License-Identifier:	GPL-2.0+
+ */
 
 #ifndef _TIME_H
 #define _TIME_H
@@ -12,14 +14,6 @@ unsigned long get_timer(unsigned long base);
  * Granularity may be larger than 1us if hardware does not support this.
  */
 unsigned long timer_get_us(void);
-
-/*
- * timer_test_add_offset()
- *
- * Allow tests to add to the time reported through lib/time.c functions
- * offset: number of milliseconds to advance the system time
- */
-void timer_test_add_offset(unsigned long offset);
 
 /*
  *	These inlines deal with timer wrapping correctly. You are

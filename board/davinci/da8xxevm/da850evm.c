@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/
  *
@@ -6,11 +5,11 @@
  *
  * Copyright (C) 2009 Nick Thompson, GE Fanuc, Ltd. <nick.thompson@gefanuc.com>
  * Copyright (C) 2007 Sergey Kubushyn <ksi@koi8.net>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
-#include <dm.h>
-#include <environment.h>
 #include <i2c.h>
 #include <net.h>
 #include <netdev.h>
@@ -25,7 +24,6 @@
 #include <linux/errno.h>
 #include <hwconfig.h>
 #include <asm/mach-types.h>
-#include <asm/gpio.h>
 
 #ifdef CONFIG_MMC_DAVINCI
 #include <mmc.h>
@@ -62,7 +60,7 @@ static int get_mac_addr(u8 *addr)
 		return -1;
 	}
 
-	ret = spi_flash_read(flash, (CFG_MAC_ADDR_OFFSET) + 1, 7, addr);
+	ret = spi_flash_read(flash, CFG_MAC_ADDR_OFFSET, 6, addr);
 	if (ret) {
 		printf("Error - unable to read MAC address from SPI flash.\n");
 		return -1;
@@ -135,14 +133,11 @@ int misc_init_r(void)
 
 	enetaddr_found = eth_env_get_enetaddr("ethaddr", env_enetaddr);
 
-#endif
-
 #ifdef CONFIG_MAC_ADDR_IN_SPIFLASH
 	int spi_mac_read;
 	uchar buff[6];
 
 	spi_mac_read = get_mac_addr(buff);
-	buff[0] = 0;
 
 	/*
 	 * MAC address not present in the environment
@@ -172,8 +167,7 @@ int misc_init_r(void)
 					"with the MAC address in the environment\n");
 		printf("Default using MAC address from environment\n");
 	}
-
-#elif defined(CONFIG_MAC_ADDR_IN_EEPROM)
+#endif
 	uint8_t enetaddr[8];
 	int eeprom_mac_read;
 
@@ -203,6 +197,23 @@ int misc_init_r(void)
 #endif
 	return 0;
 }
+
+#ifdef CONFIG_MMC_DAVINCI
+static struct davinci_mmc mmc_sd0 = {
+	.reg_base = (struct davinci_mmc_regs *)DAVINCI_MMC_SD0_BASE,
+	.host_caps = MMC_MODE_4BIT,     /* DA850 supports only 4-bit SD/MMC */
+	.voltages = MMC_VDD_32_33 | MMC_VDD_33_34,
+	.version = MMC_CTLR_VERSION_2,
+};
+
+int board_mmc_init(bd_t *bis)
+{
+	mmc_sd0.input_clk = clk_get(DAVINCI_MMCSD_CLKID);
+
+	/* Add slot-0 to mmc subsystem */
+	return davinci_mmc_init(bis, &mmc_sd0);
+}
+#endif
 
 static const struct pinmux_config gpio_pins[] = {
 #ifdef CONFIG_USE_NOR

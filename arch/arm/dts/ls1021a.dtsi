@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Freescale ls1021a SOC common device tree source
  *
  * Copyright 2013-2015 Freescale Semiconductor, Inc.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include "skeleton.dtsi"
@@ -96,6 +97,7 @@
 			sdhci,auto-cmd12;
 			big-endian;
 			bus-width = <4>;
+			status = "disabled";
 		};
 
 		scfg: scfg@1570000 {
@@ -402,15 +404,6 @@
 			bus-range = <0x0 0xff>;
 			ranges = <0x81000000 0x0 0x00000000 0x34020000 0x0 0x00010000   /* downstream I/O */
 				  0x82000000 0x0 0x38000000 0x38000000 0x0 0x08000000>; /* non-prefetchable memory */
-		};
-
-		sata: sata@3200000 {
-			compatible = "fsl,ls1021a-ahci";
-			reg = <0x0 0x3200000 0x0 0x10000 /* ccsr sata base */
-			       0x0 0x20220520 0x0 0x4>;	 /* ecc sata addr*/
-			reg-names = "sata-base", "ecc-addr";
-			interrupts = <0 101 4>;
-			status = "disabled";
 		};
 	};
 };

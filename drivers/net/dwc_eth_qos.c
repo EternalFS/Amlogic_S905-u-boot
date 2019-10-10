@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016, NVIDIA CORPORATION.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  * Portions based on U-Boot's rtl8169.c.
  */
@@ -241,7 +242,7 @@ struct eqos_tegra186_regs {
  */
 #if EQOS_DESCRIPTOR_SIZE < ARCH_DMA_MINALIGN
 #if !defined(CONFIG_SYS_NONCACHED_MEMORY) && \
-	!CONFIG_IS_ENABLED(SYS_DCACHE_OFF) && !defined(CONFIG_X86)
+	!defined(CONFIG_SYS_DCACHE_OFF) && !defined(CONFIG_X86)
 #warning Cache line size is larger than descriptor size
 #endif
 #endif
@@ -360,9 +361,8 @@ static void eqos_flush_buffer(void *buf, size_t size)
 
 static int eqos_mdio_wait_idle(struct eqos_priv *eqos)
 {
-	return wait_for_bit_le32(&eqos->mac_regs->mdio_address,
-				 EQOS_MAC_MDIO_ADDRESS_GB, false,
-				 1000000, true);
+	return wait_for_bit(__func__, &eqos->mac_regs->mdio_address,
+			    EQOS_MAC_MDIO_ADDRESS_GB, false, 1000000, true);
 }
 
 static int eqos_mdio_read(struct mii_dev *bus, int mdio_addr, int mdio_devad,
@@ -588,15 +588,15 @@ static int eqos_calibrate_pads_tegra186(struct udevice *dev)
 	setbits_le32(&eqos->tegra186_regs->auto_cal_config,
 		     EQOS_AUTO_CAL_CONFIG_START | EQOS_AUTO_CAL_CONFIG_ENABLE);
 
-	ret = wait_for_bit_le32(&eqos->tegra186_regs->auto_cal_status,
-				EQOS_AUTO_CAL_STATUS_ACTIVE, true, 10, false);
+	ret = wait_for_bit(__func__, &eqos->tegra186_regs->auto_cal_status,
+			   EQOS_AUTO_CAL_STATUS_ACTIVE, true, 10, false);
 	if (ret) {
 		pr_err("calibrate didn't start");
 		goto failed;
 	}
 
-	ret = wait_for_bit_le32(&eqos->tegra186_regs->auto_cal_status,
-				EQOS_AUTO_CAL_STATUS_ACTIVE, false, 10, false);
+	ret = wait_for_bit(__func__, &eqos->tegra186_regs->auto_cal_status,
+			   EQOS_AUTO_CAL_STATUS_ACTIVE, false, 10, false);
 	if (ret) {
 		pr_err("calibrate didn't finish");
 		goto failed;
@@ -862,8 +862,8 @@ static int eqos_start(struct udevice *dev)
 
 	eqos->reg_access_ok = true;
 
-	ret = wait_for_bit_le32(&eqos->dma_regs->mode,
-				EQOS_DMA_MODE_SWR, false, 10, false);
+	ret = wait_for_bit(__func__, &eqos->dma_regs->mode,
+			   EQOS_DMA_MODE_SWR, false, 10, false);
 	if (ret) {
 		pr_err("EQOS_DMA_MODE_SWR stuck");
 		goto err_stop_resets;

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2012 The Chromium OS Authors.
  *
@@ -7,6 +6,8 @@
  *
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef USE_HOSTCC
@@ -85,33 +86,6 @@ static int hash_finish_sha256(struct hash_algo *algo, void *ctx, void
 }
 #endif
 
-static int hash_init_crc16_ccitt(struct hash_algo *algo, void **ctxp)
-{
-	uint16_t *ctx = malloc(sizeof(uint16_t));
-	*ctx = 0;
-	*ctxp = ctx;
-	return 0;
-}
-
-static int hash_update_crc16_ccitt(struct hash_algo *algo, void *ctx,
-				   const void *buf, unsigned int size,
-				   int is_last)
-{
-	*((uint16_t *)ctx) = crc16_ccitt(*((uint16_t *)ctx), buf, size);
-	return 0;
-}
-
-static int hash_finish_crc16_ccitt(struct hash_algo *algo, void *ctx,
-				   void *dest_buf, int size)
-{
-	if (size < algo->digest_size)
-		return -1;
-
-	*((uint16_t *)dest_buf) = *((uint16_t *)ctx);
-	free(ctx);
-	return 0;
-}
-
 static int hash_init_crc32(struct hash_algo *algo, void **ctxp)
 {
 	uint32_t *ctx = malloc(sizeof(uint32_t));
@@ -186,15 +160,6 @@ static struct hash_algo hash_algo[] = {
 #endif
 	},
 #endif
-	{
-		.name		= "crc16-ccitt",
-		.digest_size	= 2,
-		.chunk_size	= CHUNKSZ,
-		.hash_func_ws	= crc16_ccitt_wd_buf,
-		.hash_init	= hash_init_crc16_ccitt,
-		.hash_update	= hash_update_crc16_ccitt,
-		.hash_finish	= hash_finish_crc16_ccitt,
-	},
 	{
 		.name		= "crc32",
 		.digest_size	= 4,
@@ -425,7 +390,7 @@ int hash_command(const char *algo_name, int flags, cmd_tbl_t *cmdtp, int flag,
 
 	if (multi_hash()) {
 		struct hash_algo *algo;
-		u8 *output;
+		uint8_t output[HASH_MAX_DIGEST_SIZE];
 		uint8_t vsum[HASH_MAX_DIGEST_SIZE];
 		void *buf;
 
@@ -439,9 +404,6 @@ int hash_command(const char *algo_name, int flags, cmd_tbl_t *cmdtp, int flag,
 			puts("HASH_MAX_DIGEST_SIZE exceeded\n");
 			return 1;
 		}
-
-		output = memalign(ARCH_DMA_MINALIGN,
-				  sizeof(uint32_t) * HASH_MAX_DIGEST_SIZE);
 
 		buf = map_sysmem(addr, len);
 		algo->hash_func_ws(buf, len, output, algo->chunk_size);
@@ -478,8 +440,6 @@ int hash_command(const char *algo_name, int flags, cmd_tbl_t *cmdtp, int flag,
 				store_result(algo, output, *argv,
 					flags & HASH_FLAG_ENV);
 			}
-		unmap_sysmem(output);
-
 		}
 
 	/* Horrible code size hack for boards that just want crc32 */

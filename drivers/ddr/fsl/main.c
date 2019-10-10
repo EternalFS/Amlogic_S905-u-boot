@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright 2008-2014 Freescale Semiconductor, Inc.
+ *
+ * SPDX-License-Identifier:	GPL-2.0
  */
 
 /*
@@ -14,6 +15,8 @@
 #include <fsl_ddr_sdram.h>
 #include <fsl_ddr.h>
 
+DECLARE_GLOBAL_DATA_PTR;
+
 /*
  * CONFIG_SYS_FSL_DDR_SDRAM_BASE_PHY is the physical address from the view
  * of DDR controllers. It is the same as CONFIG_SYS_DDR_SDRAM_BASE for
@@ -23,11 +26,7 @@
  * 0x80_8000_0000 ~ 0xff_ffff_ffff
  */
 #ifndef CONFIG_SYS_FSL_DDR_SDRAM_BASE_PHY
-#ifdef CONFIG_MPC83xx
-#define CONFIG_SYS_FSL_DDR_SDRAM_BASE_PHY CONFIG_SYS_SDRAM_BASE
-#else
 #define CONFIG_SYS_FSL_DDR_SDRAM_BASE_PHY CONFIG_SYS_DDR_SDRAM_BASE
-#endif
 #endif
 
 #ifdef CONFIG_PPC

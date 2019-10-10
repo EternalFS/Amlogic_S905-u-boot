@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -17,6 +18,7 @@
 #include <command.h>
 #include <console.h>
 #include <hash.h>
+#include <inttypes.h>
 #include <mapmem.h>
 #include <watchdog.h>
 #include <asm/io.h>
@@ -274,7 +276,8 @@ static int do_mem_cmp(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		if (word1 != word2) {
 			ulong offset = buf1 - base;
 #ifdef CONFIG_SYS_SUPPORT_64BIT_DATA
-			printf("%s at 0x%p (%#0*llx) != %s at 0x%p (%#0*llx)\n",
+			printf("%s at 0x%p (%#0*"PRIx64") != %s at 0x%p (%#0*"
+			       PRIx64 ")\n",
 			       type, (void *)(addr1 + offset), size, word1,
 			       type, (void *)(addr2 + offset), size, word2);
 #else
@@ -998,7 +1001,7 @@ mod_mem(cmd_tbl_t *cmdtp, int incrflag, int flag, int argc, char * const argv[])
 			printf(" %08x", *((u32 *)ptr));
 #ifdef CONFIG_SYS_SUPPORT_64BIT_DATA
 		else if (size == 8)
-			printf(" %016llx", *((u64 *)ptr));
+			printf(" %016" PRIx64, *((u64 *)ptr));
 #endif
 		else if (size == 2)
 			printf(" %04x", *((u16 *)ptr));

@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2017 Google, Inc
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -12,6 +13,8 @@
 
 #define WDT_AST2500	2500
 #define WDT_AST2400	2400
+
+DECLARE_GLOBAL_DATA_PTR;
 
 struct ast_wdt_priv {
 	struct ast_wdt *regs;
@@ -50,7 +53,6 @@ static int ast_wdt_stop(struct udevice *dev)
 
 	clrbits_le32(&priv->regs->ctrl, WDT_CTRL_EN);
 
-	writel(WDT_RESET_DEFAULT, &priv->regs->reset_mask);
 	return 0;
 }
 
@@ -119,4 +121,5 @@ U_BOOT_DRIVER(ast_wdt) = {
 	.priv_auto_alloc_size = sizeof(struct ast_wdt_priv),
 	.ofdata_to_platdata = ast_wdt_ofdata_to_platdata,
 	.ops = &ast_wdt_ops,
+	.flags = DM_FLAG_PRE_RELOC,
 };

@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2015, Bin Meng <bmeng.cn@gmail.com>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -33,6 +34,15 @@
 #define CONFIG_SYS_ATA_IDE1_OFFSET	0x170
 #define CONFIG_ATAPI
 
+/* SPI is not supported */
+
+#define CONFIG_SPL_FRAMEWORK
+
+#define CONFIG_SPL_TEXT_BASE		0xfffd0000
+
+#define BOOT_DEVICE_SPI			10
+
 #define CONFIG_SPL_BOARD_LOAD_IMAGE
+#define BOOT_DEVICE_BOARD		11
 
 #endif	/* __CONFIG_H */

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2014
  * DENX Software Engineering
@@ -16,6 +15,8 @@
  *		some functions added to address abstraction
  *
  * All rights reserved.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include "mkimage.h"
@@ -70,10 +71,10 @@ int main(int argc, char **argv)
 		usage(*argv);
 	}
 
-	ffd = mmap_fdt(cmdname, fdtfile, 0, &fit_blob, &fsbuf, false, true);
+	ffd = mmap_fdt(cmdname, fdtfile, 0, &fit_blob, &fsbuf, false);
 	if (ffd < 0)
 		return EXIT_FAILURE;
-	kfd = mmap_fdt(cmdname, keyfile, 0, &key_blob, &ksbuf, false, true);
+	kfd = mmap_fdt(cmdname, keyfile, 0, &key_blob, &ksbuf, false);
 	if (kfd < 0)
 		return EXIT_FAILURE;
 

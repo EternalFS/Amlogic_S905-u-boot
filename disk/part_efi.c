@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2008 RuggedCom, Inc.
  * Richard Retanubun <RichardRetanubun@RuggedCom.com>
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -14,6 +15,7 @@
 #include <command.h>
 #include <fdtdec.h>
 #include <ide.h>
+#include <inttypes.h>
 #include <malloc.h>
 #include <memalign.h>
 #include <part_efi.h>
@@ -22,12 +24,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-/*
- * GUID for basic data partions.
- */
-static const efi_guid_t partition_basic_data_guid = PARTITION_BASIC_DATA_GUID;
-
-#ifdef CONFIG_HAVE_BLOCK_DEVICE
+#ifdef HAVE_BLOCK_DEVICE
 /**
  * efi_crc32() - EFI version of crc32 function
  * @buf: buffer to calculate crc32 of
@@ -66,7 +63,7 @@ static char *print_efiname(gpt_entry *pte)
 	return name;
 }
 
-static const efi_guid_t system_guid = PARTITION_SYSTEM_GUID;
+static efi_guid_t system_guid = PARTITION_SYSTEM_GUID;
 
 static inline int is_bootable(gpt_entry *p)
 {
@@ -82,11 +79,11 @@ static int validate_gpt_header(gpt_header *gpt_h, lbaint_t lba,
 	uint32_t calc_crc32;
 
 	/* Check the GPT header signature */
-	if (le64_to_cpu(gpt_h->signature) != GPT_HEADER_SIGNATURE_UBOOT) {
+	if (le64_to_cpu(gpt_h->signature) != GPT_HEADER_SIGNATURE) {
 		printf("%s signature is wrong: 0x%llX != 0x%llX\n",
 		       "GUID Partition Table Header",
 		       le64_to_cpu(gpt_h->signature),
-		       GPT_HEADER_SIGNATURE_UBOOT);
+		       GPT_HEADER_SIGNATURE);
 		return -1;
 	}
 
@@ -209,8 +206,6 @@ int get_disk_guid(struct blk_desc * dev_desc, char *guid)
 	guid_bin = gpt_head->disk_guid.b;
 	uuid_bin_to_str(guid_bin, guid, UUID_STR_FORMAT_GUID);
 
-	/* Remember to free pte */
-	free(gpt_pte);
 	return 0;
 }
 
@@ -274,8 +269,21 @@ void part_print_efi(struct blk_desc *dev_desc)
 int part_get_info_efi(struct blk_desc *dev_desc, int part,
 		      disk_partition_t *info)
 {
-	ALLOC_CACHE_ALIGN_BUFFER_PAD(gpt_header, gpt_head, 1, dev_desc->blksz);
-	gpt_entry *gpt_pte = NULL;
+	static gpt_entry *gpt_pte = NULL;
+	static gpt_header *gpt_head = NULL;
+
+	if (!gpt_head)
+		gpt_head = memalign(ARCH_DMA_MINALIGN, dev_desc->blksz);
+
+	/*
+	 * We suppose different dev have different size, eg. emmc vs sd
+	 * free the pte first if exist and then will malloc and init a new one.
+	 */
+	if (gpt_head && (gpt_head->last_usable_lba + 0x22) != dev_desc->lba) {
+		if (gpt_pte)
+			free(gpt_pte);
+		gpt_pte = NULL;
+	}
 
 	/* "part" argument must be at least 1 */
 	if (part < 1) {
@@ -302,7 +310,6 @@ int part_get_info_efi(struct blk_desc *dev_desc, int part,
 	    !is_pte_valid(&gpt_pte[part - 1])) {
 		debug("%s: *** ERROR: Invalid partition number %d ***\n",
 			__func__, part);
-		free(gpt_pte);
 		return -1;
 	}
 
@@ -329,8 +336,6 @@ int part_get_info_efi(struct blk_desc *dev_desc, int part,
 	debug("%s: start 0x" LBAF ", size 0x" LBAF ", name %s\n", __func__,
 	      info->start, info->size, info->name);
 
-	/* Remember to free pte */
-	free(gpt_pte);
 	return 0;
 }
 
@@ -355,7 +360,9 @@ static int part_test_efi(struct blk_desc *dev_desc)
 static int set_protective_mbr(struct blk_desc *dev_desc)
 {
 	/* Setup the Protective MBR */
-	ALLOC_CACHE_ALIGN_BUFFER_PAD(legacy_mbr, p_mbr, 1, dev_desc->blksz);
+	ALLOC_CACHE_ALIGN_BUFFER(legacy_mbr, p_mbr, 1);
+	memset(p_mbr, 0, sizeof(*p_mbr));
+
 	if (p_mbr == NULL) {
 		printf("%s: calloc failed!\n", __func__);
 		return -1;
@@ -366,10 +373,6 @@ static int set_protective_mbr(struct blk_desc *dev_desc)
 		pr_err("** Can't read from device %d **\n", dev_desc->devnum);
 		return -1;
 	}
-
-	/* Clear all data in MBR except of backed up boot code */
-	memset((char *)p_mbr + MSDOS_MBR_BOOT_CODE_SIZE, 0, sizeof(*p_mbr) -
-			MSDOS_MBR_BOOT_CODE_SIZE);
 
 	/* Append signature */
 	p_mbr->signature = MSDOS_MBR_SIGNATURE;
@@ -508,12 +511,12 @@ int gpt_fill_pte(struct blk_desc *dev_desc,
 		} else {
 			/* default partition type GUID */
 			memcpy(bin_type_guid,
-			       &partition_basic_data_guid, 16);
+			       &PARTITION_BASIC_DATA_GUID, 16);
 		}
 #else
 		/* partition type GUID */
 		memcpy(gpt_e[i].partition_type_guid.b,
-			&partition_basic_data_guid, 16);
+			&PARTITION_BASIC_DATA_GUID, 16);
 #endif
 
 #if CONFIG_IS_ENABLED(PARTITION_UUIDS)
@@ -605,7 +608,7 @@ static uint32_t partition_entries_offset(struct blk_desc *dev_desc)
 int gpt_fill_header(struct blk_desc *dev_desc, gpt_header *gpt_h,
 		char *str_guid, int parts_count)
 {
-	gpt_h->signature = cpu_to_le64(GPT_HEADER_SIGNATURE_UBOOT);
+	gpt_h->signature = cpu_to_le64(GPT_HEADER_SIGNATURE);
 	gpt_h->revision = cpu_to_le32(GPT_HEADER_REVISION_V1);
 	gpt_h->header_size = cpu_to_le32(sizeof(gpt_header));
 	gpt_h->my_lba = cpu_to_le64(1);
@@ -698,10 +701,6 @@ int gpt_verify_headers(struct blk_desc *dev_desc, gpt_header *gpt_head,
 		       __func__);
 		return -1;
 	}
-
-	/* Free pte before allocating again */
-	free(*gpt_pte);
-
 	if (is_gpt_valid(dev_desc, (dev_desc->lba - 1),
 			 gpt_head, gpt_pte) != 1) {
 		printf("%s: *** ERROR: Invalid Backup GPT ***\n",
@@ -798,6 +797,14 @@ int is_valid_gpt_buf(struct blk_desc *dev_desc, void *buf)
 	/* determine start of GPT Header in the buffer */
 	gpt_h = buf + (GPT_PRIMARY_PARTITION_TABLE_LBA *
 		       dev_desc->blksz);
+
+	if ((le64_to_cpu(gpt_h->alternate_lba) + 1)
+			!= cpu_to_le64(dev_desc->lba)) {
+		printf("%s: failed checking '%s'\n", __func__,
+		       "invalid GPT Disk Size");
+		return -1;
+	}
+
 	if (validate_gpt_header(gpt_h, GPT_PRIMARY_PARTITION_TABLE_LBA,
 				dev_desc->lba))
 		return -1;
@@ -942,7 +949,11 @@ static int is_gpt_valid(struct blk_desc *dev_desc, u64 lba,
 		return 0;
 	}
 
-	ALLOC_CACHE_ALIGN_BUFFER_PAD(legacy_mbr, mbr, 1, dev_desc->blksz);
+	/* Re-use pte if it's not NULL */
+	if (*pgpt_pte)
+		return 1;
+
+	ALLOC_CACHE_ALIGN_BUFFER(legacy_mbr, mbr, dev_desc->blksz);
 
 	/* Read MBR Header from device */
 	if (blk_dread(dev_desc, 0, 1, (ulong *)mbr) != 1) {
@@ -980,6 +991,7 @@ static int is_gpt_valid(struct blk_desc *dev_desc, u64 lba,
 
 	if (validate_gpt_entries(pgpt_head, *pgpt_pte)) {
 		free(*pgpt_pte);
+		*pgpt_pte = NULL;
 		return 0;
 	}
 

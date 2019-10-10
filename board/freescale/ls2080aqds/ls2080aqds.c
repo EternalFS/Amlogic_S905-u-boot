@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2015 Freescale Semiconductor
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 #include <common.h>
 #include <malloc.h>
@@ -10,7 +11,7 @@
 #include <fsl_ddr.h>
 #include <asm/io.h>
 #include <fdt_support.h>
-#include <linux/libfdt.h>
+#include <libfdt.h>
 #include <fsl-mc/fsl_mc.h>
 #include <environment.h>
 #include <i2c.h>
@@ -225,12 +226,13 @@ int board_init(void)
 #endif
 	select_i2c_ch_pca9547(I2C_MUX_CH_DEFAULT);
 	rtc_enable_32khz_output();
-#ifdef CONFIG_FSL_CAAM
-	sec_init();
-#endif
 
 #ifdef CONFIG_FSL_LS_PPA
 	ppa_init();
+#endif
+
+#ifdef CONFIG_FSL_CAAM
+	sec_init();
 #endif
 
 	return 0;
@@ -294,8 +296,7 @@ void fdt_fixup_board_enet(void *fdt)
 		return;
 	}
 
-	if (get_mc_boot_status() == 0 &&
-	    (is_lazy_dpl_addr_valid() || get_dpl_apply_status() == 0))
+	if (get_mc_boot_status() == 0)
 		fdt_status_okay(fdt, offset);
 	else
 		fdt_status_fail(fdt, offset);
@@ -332,8 +333,6 @@ int ft_board_setup(void *blob, bd_t *bd)
 #endif
 
 	fdt_fixup_memory_banks(blob, base, size, 2);
-
-	fdt_fsl_mc_fixup_iommu_map_entry(blob);
 
 	fsl_fdt_fixup_dr_usb(blob, bd);
 
