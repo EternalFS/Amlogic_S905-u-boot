@@ -24,6 +24,10 @@
 #define U_BOOT_GUID \
 	EFI_GUID(0xe61d73b9, 0xa384, 0x4acc, \
 		 0xae, 0xab, 0x82, 0xe8, 0x28, 0xf3, 0x62, 0x8b)
+/* GUID used as host device on sandbox */
+#define U_BOOT_HOST_DEV_GUID \
+	EFI_GUID(0xbbe4e671, 0x5773, 0x4ea1, \
+		 0x9a, 0xab, 0x3a, 0x7d, 0xbf, 0x40, 0xc4, 0x82)
 
 /* Root node */
 extern efi_handle_t efi_root;
@@ -121,6 +125,10 @@ uint16_t *efi_dp_str(struct efi_device_path *dp);
 
 /* GUID of the U-Boot root node */
 extern const efi_guid_t efi_u_boot_guid;
+#ifdef CONFIG_SANDBOX
+/* GUID of U-Boot host device on sandbox */
+extern const efi_guid_t efi_guid_host_dev;
+#endif
 /* GUID of the EFI_BLOCK_IO_PROTOCOL */
 extern const efi_guid_t efi_block_io_guid;
 extern const efi_guid_t efi_global_variable_guid;
@@ -256,6 +264,7 @@ struct efi_loaded_image_obj {
  * struct efi_event
  *
  * @link:		Link to list of all events
+ * @queue_link:		Link to the list of queued events
  * @type:		Type of event, see efi_create_event
  * @notify_tpl:		Task priority level of notifications
  * @nofify_function:	Function to call when the event is triggered
@@ -264,11 +273,11 @@ struct efi_loaded_image_obj {
  * @trigger_time:	Period of the timer
  * @trigger_next:	Next time to trigger the timer
  * @trigger_type:	Type of timer, see efi_set_timer
- * @is_queued:		The notification function is queued
  * @is_signaled:	The event occurred. The event is in the signaled state.
  */
 struct efi_event {
 	struct list_head link;
+	struct list_head queue_link;
 	uint32_t type;
 	efi_uintn_t notify_tpl;
 	void (EFIAPI *notify_function)(struct efi_event *event, void *context);
@@ -277,7 +286,6 @@ struct efi_event {
 	u64 trigger_next;
 	u64 trigger_time;
 	enum efi_timer_delay trigger_type;
-	bool is_queued;
 	bool is_signaled;
 };
 
@@ -287,19 +295,37 @@ extern struct list_head efi_obj_list;
 extern struct list_head efi_events;
 
 /**
+ * struct efi_protocol_notification - handle for notified protocol
+ *
+ * When a protocol interface is installed for which an event was registered with
+ * the RegisterProtocolNotify() service this structure is used to hold the
+ * handle on which the protocol interface was installed.
+ *
+ * @link:	link to list of all handles notified for this event
+ * @handle:	handle on which the notified protocol interface was installed
+ */
+struct efi_protocol_notification {
+	struct list_head link;
+	efi_handle_t handle;
+};
+
+/**
  * efi_register_notify_event - event registered by RegisterProtocolNotify()
  *
  * The address of this structure serves as registration value.
  *
- * @link:		link to list of all registered events
- * @event:		registered event. The same event may registered for
- *			multiple GUIDs.
- * @protocol:		protocol for which the event is registered
+ * @link:	link to list of all registered events
+ * @event:	registered event. The same event may registered for multiple
+ *		GUIDs.
+ * @protocol:	protocol for which the event is registered
+ * @handles:	linked list of all handles on which the notified protocol was
+ *		installed
  */
 struct efi_register_notify_event {
 	struct list_head link;
 	struct efi_event *event;
 	efi_guid_t protocol;
+	struct list_head handles;
 };
 
 /* List of all events registered by RegisterProtocolNotify() */
@@ -307,10 +333,16 @@ extern struct list_head efi_register_notify_events;
 
 /* Initialize efi execution environment */
 efi_status_t efi_init_obj_list(void);
+/* Initialize variable services */
+efi_status_t efi_init_variables(void);
+/* Notify ExitBootServices() is called */
+void efi_variables_boot_exit_notify(void);
 /* Called by bootefi to initialize root node */
 efi_status_t efi_root_node_register(void);
 /* Called by bootefi to initialize runtime */
 efi_status_t efi_initialize_system_table(void);
+/* efi_runtime_detach() - detach unimplemented runtime functions */
+void efi_runtime_detach(void);
 /* Called by bootefi to make console interface available */
 efi_status_t efi_console_register(void);
 /* Called by bootefi to make all disk storage accessible as EFI objects */
@@ -414,7 +446,7 @@ efi_status_t efi_create_event(uint32_t type, efi_uintn_t notify_tpl,
 efi_status_t efi_set_timer(struct efi_event *event, enum efi_timer_delay type,
 			   uint64_t trigger_time);
 /* Call this to signal an event */
-void efi_signal_event(struct efi_event *event, bool check_tpl);
+void efi_signal_event(struct efi_event *event);
 
 /* open file system: */
 struct efi_simple_file_system_protocol *efi_simple_file_system(
@@ -452,8 +484,12 @@ efi_status_t efi_get_memory_map(efi_uintn_t *memory_map_size,
 				efi_uintn_t *descriptor_size,
 				uint32_t *descriptor_version);
 /* Adds a range into the EFI memory map */
-uint64_t efi_add_memory_map(uint64_t start, uint64_t pages, int memory_type,
-			    bool overlap_only_ram);
+efi_status_t efi_add_memory_map(uint64_t start, uint64_t pages, int memory_type,
+				bool overlap_only_ram);
+/* Adds a conventional range into the EFI memory map */
+efi_status_t efi_add_conventional_memory_map(u64 ram_start, u64 ram_end,
+					     u64 ram_top);
+
 /* Called by board init to initialize the EFI drivers */
 efi_status_t efi_driver_init(void);
 /* Called by board init to initialize the EFI memory map */
@@ -527,23 +563,7 @@ efi_status_t efi_dp_from_name(const char *dev, const char *devnr,
 	(((_dp)->type == DEVICE_PATH_TYPE_##_type) && \
 	 ((_dp)->sub_type == DEVICE_PATH_SUB_TYPE_##_subtype))
 
-/**
- * ascii2unicode() - convert ASCII string to UTF-16 string
- *
- * A zero terminated ASCII string is converted to a zero terminated UTF-16
- * string. The output buffer must be preassigned.
- *
- * @unicode:	preassigned output buffer for UTF-16 string
- * @ascii:	ASCII string to be converted
- */
-static inline void ascii2unicode(u16 *unicode, const char *ascii)
-{
-	while (*ascii)
-		*(unicode++) = *(ascii++);
-	*unicode = 0;
-}
-
-static inline int guidcmp(const efi_guid_t *g1, const efi_guid_t *g2)
+static inline int guidcmp(const void *g1, const void *g2)
 {
 	return memcmp(g1, g2, sizeof(efi_guid_t));
 }
@@ -554,6 +574,9 @@ static inline int guidcmp(const efi_guid_t *g1, const efi_guid_t *g2)
  */
 #define __efi_runtime_data __attribute__ ((section (".data.efi_runtime")))
 #define __efi_runtime __attribute__ ((section (".text.efi_runtime")))
+
+/* Indicate supported runtime services */
+efi_status_t efi_init_runtime_supported(void);
 
 /* Update CRC32 in table header */
 void __efi_runtime efi_update_table_header_crc32(struct efi_table_hdr *table);
@@ -576,6 +599,8 @@ efi_status_t __efi_runtime EFIAPI efi_get_time(
 			struct efi_time *time,
 			struct efi_time_cap *capabilities);
 
+efi_status_t __efi_runtime EFIAPI efi_set_time(struct efi_time *time);
+
 #ifdef CONFIG_CMD_BOOTEFI_SELFTEST
 /*
  * Entry point for the tests of the EFI API.
@@ -594,6 +619,11 @@ efi_status_t EFIAPI efi_get_next_variable_name(efi_uintn_t *variable_name_size,
 efi_status_t EFIAPI efi_set_variable(u16 *variable_name,
 				     const efi_guid_t *vendor, u32 attributes,
 				     efi_uintn_t data_size, const void *data);
+
+efi_status_t EFIAPI efi_query_variable_info(
+			u32 attributes, u64 *maximum_variable_storage_size,
+			u64 *remaining_variable_storage_size,
+			u64 *maximum_variable_size);
 
 /*
  * See section 3.1.3 in the v2.7 UEFI spec for more details on

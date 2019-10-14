@@ -102,6 +102,11 @@ efi_status_t efi_init_obj_list(void)
 	/* On ARM switch from EL3 or secure mode to EL2 or non-secure mode */
 	switch_to_non_secure_mode();
 
+	/* Initialize variable services */
+	ret = efi_init_variables();
+	if (ret != EFI_SUCCESS)
+		goto out;
+
 	/* Define supported languages */
 	ret = efi_init_platform_lang();
 	if (ret != EFI_SUCCESS)
@@ -114,6 +119,11 @@ efi_status_t efi_init_obj_list(void)
 					EFI_VARIABLE_RUNTIME_ACCESS,
 					sizeof(os_indications_supported),
 					&os_indications_supported));
+	if (ret != EFI_SUCCESS)
+		goto out;
+
+	/* Indicate supported runtime services */
+	ret = efi_init_runtime_supported();
 	if (ret != EFI_SUCCESS)
 		goto out;
 

@@ -9,7 +9,6 @@
 #include <common.h>
 #include <command.h>
 #include <efi_loader.h>
-#include <environment.h>
 #include <exports.h>
 #include <hexdump.h>
 #include <malloc.h>
@@ -394,6 +393,7 @@ static const struct efi_mem_attrs {
 
 /**
  * print_memory_attributes() - print memory map attributes
+ *
  * @attributes:	Attribute value
  *
  * Print memory map attributes
@@ -487,9 +487,9 @@ static int do_efi_show_memmap(cmd_tbl_t *cmdtp, int flag,
  * Return:	CMD_RET_SUCCESS on success,
  *		CMD_RET_USAGE or CMD_RET_RET_FAILURE on failure
  *
- * Implement efidebug "boot add" sub-command.
- * Create or change UEFI load option.
- *   - boot add <id> <label> <interface> <devnum>[:<part>] <file> <options>
+ * Implement efidebug "boot add" sub-command. Create or change UEFI load option.
+ *
+ *     efidebug boot add <id> <label> <interface> <devnum>[:<part>] <file> <options>
  */
 static int do_efi_boot_add(cmd_tbl_t *cmdtp, int flag,
 			   int argc, char * const argv[])
@@ -505,7 +505,8 @@ static int do_efi_boot_add(cmd_tbl_t *cmdtp, int flag,
 	struct efi_load_option lo;
 	void *data = NULL;
 	efi_uintn_t size;
-	int ret;
+	efi_status_t ret;
+	int r = CMD_RET_SUCCESS;
 
 	if (argc < 6 || argc > 7)
 		return CMD_RET_USAGE;
@@ -538,7 +539,7 @@ static int do_efi_boot_add(cmd_tbl_t *cmdtp, int flag,
 	if (ret != EFI_SUCCESS) {
 		printf("Cannot create device path for \"%s %s\"\n",
 		       argv[3], argv[4]);
-		ret = CMD_RET_FAILURE;
+		r = CMD_RET_FAILURE;
 		goto out;
 	}
 	lo.file_path = file_path;
@@ -553,22 +554,26 @@ static int do_efi_boot_add(cmd_tbl_t *cmdtp, int flag,
 
 	size = efi_serialize_load_option(&lo, (u8 **)&data);
 	if (!size) {
-		ret = CMD_RET_FAILURE;
+		r = CMD_RET_FAILURE;
 		goto out;
 	}
 
 	ret = EFI_CALL(RT->set_variable(var_name16, &guid,
+					EFI_VARIABLE_NON_VOLATILE |
 					EFI_VARIABLE_BOOTSERVICE_ACCESS |
 					EFI_VARIABLE_RUNTIME_ACCESS,
 					size, data));
-	ret = (ret == EFI_SUCCESS ? CMD_RET_SUCCESS : CMD_RET_FAILURE);
+	if (ret != EFI_SUCCESS) {
+		printf("Cannot set %ls\n", var_name16);
+		r = CMD_RET_FAILURE;
+	}
 out:
 	free(data);
 	efi_free_pool(device_path);
 	efi_free_pool(file_path);
 	free(lo.label);
 
-	return ret;
+	return r;
 }
 
 /**
@@ -582,7 +587,8 @@ out:
  *
  * Implement efidebug "boot rm" sub-command.
  * Delete UEFI load options.
- *   - boot rm <id> ...
+ *
+ *     efidebug boot rm <id> ...
  */
 static int do_efi_boot_rm(cmd_tbl_t *cmdtp, int flag,
 			  int argc, char * const argv[])
@@ -608,7 +614,7 @@ static int do_efi_boot_rm(cmd_tbl_t *cmdtp, int flag,
 
 		ret = EFI_CALL(RT->set_variable(var_name16, &guid, 0, 0, NULL));
 		if (ret) {
-			printf("cannot remove Boot%04X", id);
+			printf("Cannot remove Boot%04X", id);
 			return CMD_RET_FAILURE;
 		}
 	}
@@ -722,7 +728,8 @@ static int u16_tohex(u16 c)
  *
  * Implement efidebug "boot dump" sub-command.
  * Dump information of all UEFI load options defined.
- *   - boot dump
+ *
+ *     efidebug boot dump
  */
 static int do_efi_boot_dump(cmd_tbl_t *cmdtp, int flag,
 			    int argc, char * const argv[])
@@ -885,7 +892,8 @@ out:
  *
  * Implement efidebug "boot next" sub-command.
  * Set BootNext variable.
- *   - boot next <id>
+ *
+ *     efidebug boot next <id>
  */
 static int do_efi_boot_next(cmd_tbl_t *cmdtp, int flag,
 			    int argc, char * const argv[])
@@ -895,6 +903,7 @@ static int do_efi_boot_next(cmd_tbl_t *cmdtp, int flag,
 	char *endp;
 	efi_guid_t guid;
 	efi_status_t ret;
+	int r = CMD_RET_SUCCESS;
 
 	if (argc != 2)
 		return CMD_RET_USAGE;
@@ -902,19 +911,23 @@ static int do_efi_boot_next(cmd_tbl_t *cmdtp, int flag,
 	bootnext = (u16)simple_strtoul(argv[1], &endp, 16);
 	if (*endp != '\0' || bootnext > 0xffff) {
 		printf("invalid value: %s\n", argv[1]);
-		ret = CMD_RET_FAILURE;
+		r = CMD_RET_FAILURE;
 		goto out;
 	}
 
 	guid = efi_global_variable_guid;
 	size = sizeof(u16);
 	ret = EFI_CALL(RT->set_variable(L"BootNext", &guid,
+					EFI_VARIABLE_NON_VOLATILE |
 					EFI_VARIABLE_BOOTSERVICE_ACCESS |
 					EFI_VARIABLE_RUNTIME_ACCESS,
 					size, &bootnext));
-	ret = (ret == EFI_SUCCESS ? CMD_RET_SUCCESS : CMD_RET_FAILURE);
+	if (ret != EFI_SUCCESS) {
+		printf("Cannot set BootNext\n");
+		r = CMD_RET_FAILURE;
+	}
 out:
-	return ret;
+	return r;
 }
 
 /**
@@ -928,7 +941,8 @@ out:
  *
  * Implement efidebug "boot order" sub-command.
  * Show order of UEFI load options, or change it in BootOrder variable.
- *   - boot order [<id> ...]
+ *
+ *     efidebug boot order [<id> ...]
  */
 static int do_efi_boot_order(cmd_tbl_t *cmdtp, int flag,
 			     int argc, char * const argv[])
@@ -939,6 +953,7 @@ static int do_efi_boot_order(cmd_tbl_t *cmdtp, int flag,
 	char *endp;
 	efi_guid_t guid;
 	efi_status_t ret;
+	int r = CMD_RET_SUCCESS;
 
 	if (argc == 1)
 		return show_efi_boot_order();
@@ -955,7 +970,7 @@ static int do_efi_boot_order(cmd_tbl_t *cmdtp, int flag,
 		id = (int)simple_strtoul(argv[i], &endp, 16);
 		if (*endp != '\0' || id > 0xffff) {
 			printf("invalid value: %s\n", argv[i]);
-			ret = CMD_RET_FAILURE;
+			r = CMD_RET_FAILURE;
 			goto out;
 		}
 
@@ -964,14 +979,18 @@ static int do_efi_boot_order(cmd_tbl_t *cmdtp, int flag,
 
 	guid = efi_global_variable_guid;
 	ret = EFI_CALL(RT->set_variable(L"BootOrder", &guid,
+					EFI_VARIABLE_NON_VOLATILE |
 					EFI_VARIABLE_BOOTSERVICE_ACCESS |
 					EFI_VARIABLE_RUNTIME_ACCESS,
 					size, bootorder));
-	ret = (ret == EFI_SUCCESS ? CMD_RET_SUCCESS : CMD_RET_FAILURE);
+	if (ret != EFI_SUCCESS) {
+		printf("Cannot set BootOrder\n");
+		r = CMD_RET_FAILURE;
+	}
 out:
 	free(bootorder);
 
-	return ret;
+	return r;
 }
 
 static cmd_tbl_t cmd_efidebug_boot_sub[] = {
@@ -994,7 +1013,6 @@ static cmd_tbl_t cmd_efidebug_boot_sub[] = {
  *		CMD_RET_USAGE or CMD_RET_RET_FAILURE on failure
  *
  * Implement efidebug "boot" sub-command.
- * See above for details of sub-commands.
  */
 static int do_efi_boot_opt(cmd_tbl_t *cmdtp, int flag,
 			   int argc, char * const argv[])
@@ -1040,7 +1058,6 @@ static cmd_tbl_t cmd_efidebug_sub[] = {
  *
  * Implement efidebug command which allows us to display and
  * configure UEFI environment.
- * See above for details of sub-commands.
  */
 static int do_efidebug(cmd_tbl_t *cmdtp, int flag,
 		       int argc, char * const argv[])

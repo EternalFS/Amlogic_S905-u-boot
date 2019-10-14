@@ -6,6 +6,7 @@
 #include <config.h>
 #include <errno.h>
 #include <common.h>
+#include <env.h>
 #include <mapmem.h>
 #include <part.h>
 #include <ext4fs.h>
@@ -17,6 +18,7 @@
 #include <asm/io.h>
 #include <div64.h>
 #include <linux/math64.h>
+#include <efi_loader.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -700,6 +702,10 @@ int do_load(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
 	else
 		pos = 0;
 
+#ifdef CONFIG_CMD_BOOTEFI
+	efi_set_bootdev(argv[1], (argc > 2) ? argv[2] : "",
+			(argc > 4) ? argv[4] : "");
+#endif
 	time = get_timer(0);
 	ret = _fs_read(filename, addr, pos, bytes, 1, &len_read);
 	time = get_timer(time);

@@ -63,7 +63,11 @@
 	func(HOST, host, 1) \
 	func(HOST, host, 0)
 
+#ifdef __ASSEMBLY__
+#define BOOTENV
+#else
 #include <config_distro_bootcmd.h>
+#endif
 
 #define CONFIG_KEEP_SERVERADDR
 #define CONFIG_UDP_CHECKSUM
@@ -71,7 +75,6 @@
 #define CONFIG_BOOTP_DNS2
 #define CONFIG_BOOTP_SEND_HOSTNAME
 #define CONFIG_BOOTP_SERVERIP
-#define CONFIG_IP_DEFRAG
 
 #ifndef SANDBOX_NO_SDL
 #define CONFIG_SANDBOX_SDL

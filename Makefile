@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0+
 
 VERSION = 2019
-PATCHLEVEL = 07
+PATCHLEVEL = 10
 SUBLEVEL =
-EXTRAVERSION = -rc3
+EXTRAVERSION =
 NAME =
 
 # *DOCUMENTATION*
@@ -168,7 +168,7 @@ MAKEFLAGS += --no-print-directory
 # Use 'make C=2' to enable checking of *all* source files, regardless
 # of whether they are re-compiled or not.
 #
-# See the file "Documentation/sparse.txt" for more details, including
+# See the file "doc/sparse.txt" for more details, including
 # where to get the "sparse" utility.
 
 ifeq ("$(origin C)", "command line")
@@ -336,6 +336,19 @@ endif
 #ifeq ($(MAKECMDGOALS),)
 #  KBUILD_MODULES := 1
 #endif
+
+define size_check
+	actual=$$( wc -c $1 | awk '{print $$1}'); \
+	limit=$$( printf "%d" $2 ); \
+	if test $$actual -gt $$limit; then \
+		echo "$1 exceeds file size limit:" >&2; \
+		echo "  limit:  $$limit bytes" >&2; \
+		echo "  actual: $$actual bytes" >&2; \
+		echo "  excess: $$((actual - limit)) bytes" >&2; \
+		exit 1; \
+	fi
+endef
+export size_check
 
 export KBUILD_MODULES KBUILD_BUILTIN
 export KBUILD_CHECKSRC KBUILD_SRC KBUILD_EXTMOD
@@ -778,18 +791,15 @@ LDPPFLAGS += \
 #########################################################################
 
 ifneq ($(CONFIG_BOARD_SIZE_LIMIT),)
-BOARD_SIZE_CHECK = \
-	@actual=`wc -c $@ | awk '{print $$1}'`; \
-	limit=`printf "%d" $(CONFIG_BOARD_SIZE_LIMIT)`; \
-	if test $$actual -gt $$limit; then \
-		echo "$@ exceeds file size limit:" >&2 ; \
-		echo "  limit:  $$limit bytes" >&2 ; \
-		echo "  actual: $$actual bytes" >&2 ; \
-		echo "  excess: $$((actual - limit)) bytes" >&2; \
-		exit 1; \
-	fi
+BOARD_SIZE_CHECK= @ $(call size_check,$@,$(CONFIG_BOARD_SIZE_LIMIT))
 else
 BOARD_SIZE_CHECK =
+endif
+
+ifneq ($(CONFIG_SPL_SIZE_LIMIT),0)
+SPL_SIZE_CHECK = @$(call size_check,$@,$$(tools/spl_size_limit))
+else
+SPL_SIZE_CHECK =
 endif
 
 # Statically apply RELA-style relocations (currently arm64 only)
@@ -864,12 +874,16 @@ ifneq ($(CONFIG_BUILD_TARGET),)
 ALL-y += $(CONFIG_BUILD_TARGET:"%"=%)
 endif
 
-ifneq ($(CONFIG_SYS_INIT_SP_BSS_OFFSET),)
+ifdef CONFIG_INIT_SP_RELATIVE
 ALL-y += init_sp_bss_offset_check
 endif
 
 ifeq ($(CONFIG_MPC85xx)$(CONFIG_OF_SEPARATE),yy)
 ALL-y += u-boot-with-dtb.bin
+endif
+
+ifeq ($(CONFIG_ARCH_ROCKCHIP)$(CONFIG_SPL)$(CONFIG_TPL),yyy)
+ALL-y += idbloader.img
 endif
 
 LDFLAGS_u-boot += $(LDFLAGS_FINAL)
@@ -918,11 +932,20 @@ cmd_cfgcheck = $(srctree)/scripts/check-config.sh $2 \
 		$(srctree)/scripts/config_whitelist.txt $(srctree)
 
 all:		$(ALL-y)
-ifeq ($(CONFIG_DM_I2C_COMPAT)$(CONFIG_SANDBOX),y)
+ifeq ($(CONFIG_DEPRECATED),y)
+	$(warning "You have deprecated configuration options enabled in your .config! Please check your configuration.")
+ifeq ($(CONFIG_SPI),y)
+ifneq ($(CONFIG_DM_SPI)$(CONFIG_OF_CONTROL),yy)
+	$(warning "The relevant config item with associated code will remove in v2019.07 release.")
+endif
+endif
+endif
+ifneq ($(CONFIG_DM),y)
 	@echo >&2 "===================== WARNING ======================"
-	@echo >&2 "This board uses CONFIG_DM_I2C_COMPAT. Please remove"
-	@echo >&2 "(possibly in a subsequent patch in your series)"
-	@echo >&2 "before sending patches to the mailing list."
+	@echo >&2 "This board does not use CONFIG_DM. CONFIG_DM will be"
+	@echo >&2 "compulsory starting with the v2020.01 release."
+	@echo >&2 "Failure to update may result in board removal."
+	@echo >&2 "See doc/driver-model/migration.rst for more info."
 	@echo >&2 "===================================================="
 endif
 ifeq ($(CONFIG_MMC),y)
@@ -994,17 +1017,6 @@ ifeq ($(CONFIG_OF_EMBED),y)
 	@echo >&2 "See doc/README.fdt-control for more info."
 	@echo >&2 "===================================================="
 endif
-ifeq ($(CONFIG_SPI),y)
-ifneq ($(CONFIG_DM_SPI)$(CONFIG_OF_CONTROL),yy)
-	@echo >&2 "===================== WARNING ======================"
-	@echo >&2 "This board does not use CONFIG_DM_SPI. Please update"
-	@echo >&2 "the board before v2019.04 for no dm conversion"
-	@echo >&2 "and v2019.07 for partially dm converted drivers."
-	@echo >&2 "Failure to update can lead to driver/board removal"
-	@echo >&2 "See doc/driver-model/MIGRATION.txt for more info."
-	@echo >&2 "===================================================="
-endif
-endif
 ifeq ($(CONFIG_SPI_FLASH),y)
 ifneq ($(CONFIG_DM_SPI_FLASH)$(CONFIG_OF_CONTROL),yy)
 	@echo >&2 "===================== WARNING ======================"
@@ -1023,6 +1035,17 @@ ifneq ($(CONFIG_WDT),y)
 	@echo >&2 "v2019.10 release."
 	@echo >&2 "Failure to update by the deadline may result in board removal."
 	@echo >&2 "See doc/driver-model/MIGRATION.txt for more info."
+	@echo >&2 "===================================================="
+endif
+endif
+ifneq ($(CONFIG_NET),)
+ifneq ($(CONFIG_DM_ETH),y)
+	@echo >&2 "===================== WARNING ======================"
+	@echo >&2 "This board does not use CONFIG_DM_ETH (Driver Model"
+	@echo >&2 "for Ethernet drivers). Please update the board to use"
+	@echo >&2 "CONFIG_DM_ETH before the v2020.07 release. Failure to"
+	@echo >&2 "update by the deadline may result in board removal."
+	@echo >&2 "See doc/driver-model/migration.rst for more info."
 	@echo >&2 "===================================================="
 endif
 endif
@@ -1077,6 +1100,10 @@ endif
 
 u-boot.bin: u-boot-fit-dtb.bin FORCE
 	$(call if_changed,copy)
+
+u-boot-dtb.bin: u-boot-nodtb.bin dts/dt.dtb FORCE
+	$(call if_changed,cat)
+
 else ifeq ($(CONFIG_OF_SEPARATE),y)
 u-boot-dtb.bin: u-boot-nodtb.bin dts/dt.dtb FORCE
 	$(call if_changed,cat)
@@ -1090,6 +1117,7 @@ endif
 
 %.imx: %.bin
 	$(Q)$(MAKE) $(build)=arch/arm/mach-imx $@
+	$(BOARD_SIZE_CHECK)
 
 %.vyb: %.imx
 	$(Q)$(MAKE) $(build)=arch/arm/cpu/armv7/vf610 $@
@@ -1143,7 +1171,7 @@ binary_size_check: u-boot-nodtb.bin FORCE
 		fi \
 	fi
 
-ifneq ($(CONFIG_SYS_INIT_SP_BSS_OFFSET),)
+ifdef CONFIG_INIT_SP_RELATIVE
 ifneq ($(CONFIG_SYS_MALLOC_F_LEN),)
 subtract_sys_malloc_f_len = space=$$(($${space} - $(CONFIG_SYS_MALLOC_F_LEN)))
 else
@@ -1184,9 +1212,10 @@ u-boot.ldr:	u-boot
 # ---------------------------------------------------------------------------
 # Use 'make BINMAN_DEBUG=1' to enable debugging
 quiet_cmd_binman = BINMAN  $@
-cmd_binman = $(srctree)/tools/binman/binman -u -d u-boot.dtb -O . -m \
+cmd_binman = $(srctree)/tools/binman/binman $(if $(BINMAN_DEBUG),-D) \
+                build -u -d u-boot.dtb -O . -m \
 		-I . -I $(srctree) -I $(srctree)/board/$(BOARDDIR) \
-		$(if $(BINMAN_DEBUG),-D) $(BINMAN_$(@F)) $<
+		$(BINMAN_$(@F))
 
 OBJCOPYFLAGS_u-boot.ldr.hex := -I binary -O ihex
 
@@ -1203,7 +1232,7 @@ ifndef CONFIG_SYS_UBOOT_START
 CONFIG_SYS_UBOOT_START := 0
 endif
 
-# Boards with more complex image requirments can provide an .its source file
+# Boards with more complex image requirements can provide an .its source file
 # or a generator script
 ifneq ($(CONFIG_SPL_FIT_SOURCE),"")
 U_BOOT_ITS = $(subst ",,$(CONFIG_SPL_FIT_SOURCE))
@@ -1250,8 +1279,16 @@ MKIMAGEFLAGS_u-boot-spl.kwb = -n $(srctree)/$(CONFIG_SYS_KWD_CONFIG:"%"=%) \
 MKIMAGEFLAGS_u-boot.pbl = -n $(srctree)/$(CONFIG_SYS_FSL_PBL_RCW:"%"=%) \
 		-R $(srctree)/$(CONFIG_SYS_FSL_PBL_PBI:"%"=%) -T pblimage
 
+ifeq ($(CONFIG_MPC85xx)$(CONFIG_OF_SEPARATE),yy)
+UBOOT_BIN := u-boot-with-dtb.bin
+else
+UBOOT_BIN := u-boot.bin
+endif
+
 u-boot-dtb.img u-boot.img u-boot.kwb u-boot.pbl u-boot-ivt.img: \
-		$(if $(CONFIG_SPL_LOAD_FIT),u-boot-nodtb.bin dts/dt.dtb,u-boot.bin) FORCE
+		$(if $(CONFIG_SPL_LOAD_FIT),u-boot-nodtb.bin \
+			$(if $(CONFIG_OF_SEPARATE)$(CONFIG_OF_EMBED)$(CONFIG_OF_HOSTFILE),dts/dt.dtb) \
+		,$(UBOOT_BIN)) FORCE
 	$(call if_changed,mkimage)
 	$(BOARD_SIZE_CHECK)
 
@@ -1261,7 +1298,9 @@ else
 MKIMAGEFLAGS_u-boot.itb = -E
 endif
 
-u-boot.itb: u-boot-nodtb.bin dts/dt.dtb $(U_BOOT_ITS) FORCE
+u-boot.itb: u-boot-nodtb.bin \
+		$(if $(CONFIG_OF_SEPARATE)$(CONFIG_OF_EMBED)$(CONFIG_OF_HOSTFILE),dts/dt.dtb) \
+		$(U_BOOT_ITS) FORCE
 	$(call if_changed,mkfitimage)
 	$(BOARD_SIZE_CHECK)
 
@@ -1286,6 +1325,14 @@ OBJCOPYFLAGS_u-boot-with-spl.bin = -I binary -O binary \
 				   --pad-to=$(CONFIG_SPL_PAD_TO)
 u-boot-with-spl.bin: $(SPL_IMAGE) $(SPL_PAYLOAD) FORCE
 	$(call if_changed,pad_cat)
+
+ifeq ($(CONFIG_ARCH_ROCKCHIP),y)
+MKIMAGEFLAGS_u-boot-tpl.img = -n $(CONFIG_SYS_SOC) -T rksd
+tpl/u-boot-tpl.img: tpl/u-boot-tpl.bin FORCE
+	$(call if_changed,mkimage)
+idbloader.img: tpl/u-boot-tpl.img spl/u-boot-spl.bin FORCE
+	$(call if_changed,cat)
+endif
 
 ifeq ($(CONFIG_ARCH_LPC32XX)$(CONFIG_SPL),yy)
 MKIMAGEFLAGS_lpc32xx-spl.img = -T lpc32xximage -a $(CONFIG_SPL_TEXT_BASE)
@@ -1684,7 +1731,7 @@ define filechk_defaultenv.h
 	(grep -v '^#' | \
 	 grep -v '^$$' | \
 	 tr '\n' '\0' | \
-	 sed -e 's/\\\x0/\n/' | \
+	 sed -e 's/\\\x0/\n/g' | \
 	 xxd -i ; echo ", 0x00" ; )
 endef
 
@@ -1707,6 +1754,8 @@ u-boot.lds: $(LDSCRIPT) prepare FORCE
 
 spl/u-boot-spl.bin: spl/u-boot-spl
 	@:
+	$(SPL_SIZE_CHECK)
+
 spl/u-boot-spl: tools prepare \
 		$(if $(CONFIG_OF_SEPARATE)$(CONFIG_OF_EMBED)$(CONFIG_SPL_OF_PLATDATA),dts/dt.dtb) \
 		$(if $(CONFIG_OF_SEPARATE)$(CONFIG_OF_EMBED)$(CONFIG_TPL_OF_PLATDATA),dts/dt.dtb)
@@ -1769,6 +1818,7 @@ checkarmreloc: u-boot
 envtools: scripts_basic $(version_h) $(timestamp_h)
 	$(Q)$(MAKE) $(build)=tools/env
 
+tools-only: export TOOLS_ONLY=y
 tools-only: scripts_basic $(version_h) $(timestamp_h)
 	$(Q)$(MAKE) $(build)=tools
 
@@ -1825,14 +1875,15 @@ clean: $(clean-dirs)
 	$(call cmd,rmfiles)
 	@find $(if $(KBUILD_EXTMOD), $(KBUILD_EXTMOD), .) $(RCS_FIND_IGNORE) \
 		\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
-		-o -name '*.ko.*' -o -name '*.su' \
+		-o -name '*.ko.*' -o -name '*.su' -o -name '*.pyc' \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
 		-o -name '*.lex.c' -o -name '*.tab.[ch]' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
 		-o -name modules.builtin -o -name '.tmp_*.o.*' \
 		-o -name 'dsdt.aml' -o -name 'dsdt.asl.tmp' -o -name 'dsdt.c' \
 		-o -name '*.efi' -o -name '*.gcno' -o -name '*.so' \) \
-		-type f -print | xargs rm -f
+		-type f -print | xargs rm -f \
+		bl31.c bl31.elf bl31_*.bin image.map tispl.bin*
 
 # mrproper - Delete all generated files, including .config
 #
@@ -1901,7 +1952,7 @@ help:
 	@echo  '  coccicheck      - Execute static code analysis with Coccinelle'
 	@echo  ''
 	@echo  'Documentation targets:'
-	@$(MAKE) -f $(srctree)/Documentation/Makefile dochelp
+	@$(MAKE) -f $(srctree)/doc/Makefile dochelp
 	@echo  ''
 	@echo  '  make V=0|1 [targets] 0 => quiet build (default), 1 => verbose build'
 	@echo  '  make V=2   [targets] 2 => give reason for rebuild of target'
@@ -1930,7 +1981,7 @@ DOC_TARGETS := xmldocs latexdocs pdfdocs htmldocs epubdocs cleandocs \
 	       linkcheckdocs dochelp refcheckdocs
 PHONY += $(DOC_TARGETS)
 $(DOC_TARGETS): scripts_basic FORCE
-	$(Q)$(MAKE) $(build)=Documentation $@
+	$(Q)$(MAKE) $(build)=doc $@
 
 endif #ifeq ($(config-targets),1)
 endif #ifeq ($(mixed-targets),1)

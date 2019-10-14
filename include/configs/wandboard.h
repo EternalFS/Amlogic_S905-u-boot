@@ -61,6 +61,7 @@
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	"console=ttymxc0\0" \
 	"splashpos=m,m\0" \
+	"splashimage=" __stringify(CONFIG_LOADADDR) "\0" \
 	"fdtfile=undefined\0" \
 	"fdt_high=0xffffffff\0" \
 	"initrd_high=0xffffffff\0" \
@@ -110,6 +111,7 @@
 #define BOOT_TARGET_DEVICES(func) \
 	func(MMC, mmc, 0) \
 	func(MMC, mmc, 1) \
+	func(MMC, mmc, 2) \
 	func(SATA, sata, 0) \
 	func(USB, usb, 0) \
 	func(PXE, pxe, na) \

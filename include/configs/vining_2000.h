@@ -17,9 +17,6 @@
 /* Size of malloc() pool */
 #define CONFIG_SYS_MALLOC_LEN		(3 * SZ_1M)
 
-#define CONFIG_MXC_UART
-#define CONFIG_MXC_UART_BASE		UART1_BASE
-
 #define BOOT_TARGET_DEVICES(func) \
 	func(MMC, mmc, 0) \
 	func(MMC, mmc, 1) \
@@ -86,7 +83,6 @@
 
 #define CONFIG_IMX_THERMAL
 
-#define CONFIG_PWM_IMX
 #define CONFIG_IMX6_PWM_PER_CLK 66000000
 
 #define CONFIG_ENV_OFFSET		(8 * SZ_64K)

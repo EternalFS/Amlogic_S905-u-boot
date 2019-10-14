@@ -8,9 +8,11 @@
 #include <boot_fit.h>
 #include <dm.h>
 #include <dm/of_extra.h>
+#include <env.h>
 #include <errno.h>
 #include <fdtdec.h>
 #include <fdt_support.h>
+#include <gzip.h>
 #include <mapmem.h>
 #include <linux/libfdt.h>
 #include <serial.h>
@@ -215,7 +217,7 @@ int fdtdec_get_pci_addr(const void *blob, int node, enum fdt_pci_space type,
 			if ((fdt32_to_cpu(*cell) & type) == type) {
 				addr->phys_hi = fdt32_to_cpu(cell[0]);
 				addr->phys_mid = fdt32_to_cpu(cell[1]);
-				addr->phys_lo = fdt32_to_cpu(cell[1]);
+				addr->phys_lo = fdt32_to_cpu(cell[2]);
 				break;
 			}
 
@@ -1261,6 +1263,35 @@ __weak void *board_fdt_blob_setup(void)
 }
 #endif
 
+int fdtdec_set_ethernet_mac_address(void *fdt, const u8 *mac, size_t size)
+{
+	const char *path;
+	int offset, err;
+
+	if (!is_valid_ethaddr(mac))
+		return -EINVAL;
+
+	path = fdt_get_alias(fdt, "ethernet");
+	if (!path)
+		return 0;
+
+	debug("ethernet alias found: %s\n", path);
+
+	offset = fdt_path_offset(fdt, path);
+	if (offset < 0) {
+		debug("ethernet alias points to absent node %s\n", path);
+		return -ENOENT;
+	}
+
+	err = fdt_setprop_inplace(fdt, offset, "local-mac-address", mac, size);
+	if (err < 0)
+		return err;
+
+	debug("MAC address: %pM\n", mac);
+
+	return 0;
+}
+
 static int fdtdec_init_reserved_memory(void *blob)
 {
 	int na, ns, node, err;
@@ -1504,16 +1535,14 @@ int fdtdec_setup(void)
 		puts("Failed to read control FDT\n");
 		return -1;
 	}
+# elif defined(CONFIG_OF_PRIOR_STAGE)
+	gd->fdt_blob = (void *)prior_stage_fdt_address;
 # endif
 # ifndef CONFIG_SPL_BUILD
 	/* Allow the early environment to override the fdt address */
-#  if CONFIG_IS_ENABLED(OF_PRIOR_STAGE)
-	gd->fdt_blob = (void *)prior_stage_fdt_address;
-#  else
 	gd->fdt_blob = map_sysmem
 		(env_get_ulong("fdtcontroladdr", 16,
 			       (unsigned long)map_to_sysmem(gd->fdt_blob)), 0);
-#  endif
 # endif
 
 # if CONFIG_IS_ENABLED(MULTI_DTB_FIT)

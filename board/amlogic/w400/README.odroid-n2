@@ -46,12 +46,12 @@ the git tree published by the board vendor:
  > tar xvfJ gcc-linaro-arm-none-eabi-4.8-2013.11_linux.tar.xz
  > export PATH=$PWD/gcc-linaro-aarch64-none-elf-4.8-2013.11_linux/bin:$PWD/gcc-linaro-arm-none-eabi-4.8-2013.11_linux/bin:$PATH
 
- > DIR=odroid-c2
+ > DIR=odroid-n2
  > git clone --depth 1 \
-       https://github.com/hardkernel/u-boot.git -b odroidc2-v2015.01 \
+       https://github.com/hardkernel/u-boot.git -b odroidn2-v2015.01 \
        $DIR
 
- > cd odroid-c2
+ > cd odroid-n2
  > make odroidn2_defconfig
  > make
  > export UBOOTDIR=$PWD

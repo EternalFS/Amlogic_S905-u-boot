@@ -65,7 +65,6 @@
 
 # define CONFIG_SYS_DFU_DATA_BUF_SIZE	0x600000
 # define DFU_DEFAULT_POLL_TIMEOUT	300
-# define CONFIG_USB_CABLE_CHECK
 # define CONFIG_THOR_RESET_OFF
 # define DFU_ALT_INFO_RAM \
 	"dfu_ram_info=" \
@@ -103,7 +102,6 @@
 #define CONFIG_ENV_OVERWRITE
 
 /* enable preboot to be loaded before CONFIG_BOOTDELAY */
-#define CONFIG_PREBOOT
 
 /* Boot configuration */
 #define CONFIG_SYS_LOAD_ADDR		0 /* default? */
@@ -276,8 +274,6 @@
 /* Boot FreeBSD/vxWorks from an ELF image */
 #define CONFIG_SYS_MMC_MAX_DEVICE	1
 
-#define CONFIG_SYS_LDSCRIPT  "arch/arm/mach-zynq/u-boot.lds"
-
 /* MMC support */
 #ifdef CONFIG_MMC_SDHCI_ZYNQ
 #define CONFIG_SYS_MMCSD_FS_BOOT_PARTITION     1
@@ -297,7 +293,6 @@
 
 /* qspi mode is working fine */
 #ifdef CONFIG_ZYNQ_QSPI
-#define CONFIG_SYS_SPI_U_BOOT_OFFS	0x100000
 #define CONFIG_SYS_SPI_ARGS_OFFS	0x200000
 #define CONFIG_SYS_SPI_ARGS_SIZE	0x80000
 #define CONFIG_SYS_SPI_KERNEL_OFFS	(CONFIG_SYS_SPI_ARGS_OFFS + \
