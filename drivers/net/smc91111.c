@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*------------------------------------------------------------------------
  . smc91111.c
  . This is a driver for SMSC's 91C111 single-chip Ethernet device.
@@ -10,7 +11,6 @@
  .	 Developed by Simple Network Magic Corporation (SNMC)
  . Copyright (C) 1996 by Erik Stahlman (ES)
  .
- * SPDX-License-Identifier:	GPL-2.0+
  .
  . Information contained in this file was obtained from the LAN91C111
  . manual from SMC.  To get a copy, if you really want one, you can find
@@ -51,6 +51,7 @@
 #include <command.h>
 #include <config.h>
 #include <malloc.h>
+#include <linux/delay.h>
 #include "smc91111.h"
 #include <net.h>
 
@@ -266,7 +267,7 @@ static inline void smc_wait_mmu_release_complete (struct eth_device *dev)
 
 	/* assume bank 2 selected */
 	while (SMC_inw (dev, MMU_CMD_REG) & MC_BUSY) {
-		udelay (1);	/* Wait until not busy */
+		udelay(1);	/* Wait until not busy */
 		if (++count > 200)
 			break;
 	}
@@ -318,7 +319,7 @@ static void smc_reset (struct eth_device *dev)
 	SMC_SELECT_BANK (dev, 0);
 
 	/* this should pause enough for the chip to be happy */
-	udelay (10);
+	udelay(10);
 
 	/* Disable transmit and receive functionality */
 	SMC_outw (dev, RCR_CLEAR, RCR_REG);
@@ -333,7 +334,7 @@ static void smc_reset (struct eth_device *dev)
 	smc_wait_mmu_release_complete (dev);
 	SMC_outw (dev, MC_RESET, MMU_CMD_REG);
 	while (SMC_inw (dev, MMU_CMD_REG) & MC_BUSY)
-		udelay (1);	/* Wait until not busy */
+		udelay(1);	/* Wait until not busy */
 
 	/* Note:  It doesn't seem that waiting for the MMU busy is needed here,
 	   but this is a place where future chipsets _COULD_ break.  Be wary
@@ -499,15 +500,8 @@ again:
 	}
 
 	/* we have a packet address, so tell the card to use it */
-#ifndef CONFIG_XAENIAX
 	SMC_outb (dev, packet_no, PN_REG);
-#else
-	/* On Xaeniax board, we can't use SMC_outb here because that way
-	 * the Allocate MMU command will end up written to the command register
-	 * as well, which will lead to a problem.
-	 */
-	SMC_outl (dev, packet_no << 16, 0);
-#endif
+
 	/* do not write new ptr value if Write data fifo not empty */
 	while ( saved_ptr & PTR_NOTEMPTY )
 		printf ("Write data fifo not empty!\n");
@@ -542,39 +536,19 @@ again:
 	 */
 #ifdef USE_32_BIT
 	SMC_outsl (dev, SMC91111_DATA_REG, buf, length >> 2);
-#ifndef CONFIG_XAENIAX
 	if (length & 0x2)
 		SMC_outw (dev, *((word *) (buf + (length & 0xFFFFFFFC))),
 			  SMC91111_DATA_REG);
 #else
-	/* On XANEIAX, we can only use 32-bit writes, so we need to handle
-	 * unaligned tail part specially. The standard code doesn't work.
-	 */
-	if ((length & 3) == 3) {
-		u16 * ptr = (u16*) &buf[length-3];
-		SMC_outl(dev, (*ptr) | ((0x2000 | buf[length-1]) << 16),
-				SMC91111_DATA_REG);
-	} else if ((length & 2) == 2) {
-		u16 * ptr = (u16*) &buf[length-2];
-		SMC_outl(dev, *ptr, SMC91111_DATA_REG);
-	} else if (length & 1) {
-		SMC_outl(dev, (0x2000 | buf[length-1]), SMC91111_DATA_REG);
-	} else {
-		SMC_outl(dev, 0, SMC91111_DATA_REG);
-	}
-#endif
-#else
 	SMC_outsw (dev, SMC91111_DATA_REG, buf, (length) >> 1);
 #endif /* USE_32_BIT */
 
-#ifndef CONFIG_XAENIAX
 	/* Send the last byte, if there is one.	  */
 	if ((length & 1) == 0) {
 		SMC_outw (dev, 0, SMC91111_DATA_REG);
 	} else {
 		SMC_outw (dev, buf[length - 1] | 0x2000, SMC91111_DATA_REG);
 	}
-#endif
 
 	/* and let the chipset deal with it */
 	SMC_outw (dev, MC_ENQUEUE, MMU_CMD_REG);
@@ -588,13 +562,10 @@ again:
 
 		/* release packet */
 		/* no need to release, MMU does that now */
-#ifdef CONFIG_XAENIAX
-		 SMC_outw (dev, MC_FREEPKT, MMU_CMD_REG);
-#endif
 
 		/* wait for MMU getting ready (low) */
 		while (SMC_inw (dev, MMU_CMD_REG) & MC_BUSY) {
-			udelay (10);
+			udelay(10);
 		}
 
 		PRINTK2 ("MMU ready\n");
@@ -610,13 +581,10 @@ again:
 
 		/* release packet */
 		/* no need to release, MMU does that now */
-#ifdef CONFIG_XAENIAX
-		SMC_outw (dev, MC_FREEPKT, MMU_CMD_REG);
-#endif
 
 		/* wait for MMU getting ready (low) */
 		while (SMC_inw (dev, MMU_CMD_REG) & MC_BUSY) {
-			udelay (10);
+			udelay(10);
 		}
 
 		PRINTK2 ("MMU ready\n");
@@ -625,15 +593,7 @@ again:
 	}
 
 	/* restore previously saved registers */
-#ifndef CONFIG_XAENIAX
 	SMC_outb( dev, saved_pnr, PN_REG );
-#else
-	/* On Xaeniax board, we can't use SMC_outb here because that way
-	 * the Allocate MMU command will end up written to the command register
-	 * as well, which will lead to a problem.
-	 */
-	SMC_outl(dev, saved_pnr << 16, 0);
-#endif
 	SMC_outw( dev, saved_ptr, PTR_REG );
 
 	return length;
@@ -756,35 +716,35 @@ static int smc_rcv(struct eth_device *dev)
 
 
 #ifdef USE_32_BIT
-		PRINTK3(" Reading %d dwords (and %d bytes) \n",
+		PRINTK3(" Reading %d dwords (and %d bytes)\n",
 			packet_length >> 2, packet_length & 3 );
 		/* QUESTION:  Like in the TX routine, do I want
 		   to send the DWORDs or the bytes first, or some
 		   mixture.  A mixture might improve already slow PIO
 		   performance	*/
-		SMC_insl( dev, SMC91111_DATA_REG, NetRxPackets[0],
-			packet_length >> 2 );
+		SMC_insl(dev, SMC91111_DATA_REG, net_rx_packets[0],
+			 packet_length >> 2);
 		/* read the left over bytes */
 		if (packet_length & 3) {
 			int i;
 
-			byte *tail = (byte *)(NetRxPackets[0] +
+			byte *tail = (byte *)(net_rx_packets[0] +
 				(packet_length & ~3));
 			dword leftover = SMC_inl(dev, SMC91111_DATA_REG);
 			for (i=0; i<(packet_length & 3); i++)
 				*tail++ = (byte) (leftover >> (8*i)) & 0xff;
 		}
 #else
-		PRINTK3(" Reading %d words and %d byte(s) \n",
+		PRINTK3(" Reading %d words and %d byte(s)\n",
 			(packet_length >> 1 ), packet_length & 1 );
-		SMC_insw(dev, SMC91111_DATA_REG , NetRxPackets[0],
-			packet_length >> 1);
+		SMC_insw(dev, SMC91111_DATA_REG , net_rx_packets[0],
+			 packet_length >> 1);
 
 #endif /* USE_32_BIT */
 
 #if	SMC_DEBUG > 2
 		printf("Receiving Packet\n");
-		print_packet( NetRxPackets[0], packet_length );
+		print_packet(net_rx_packets[0], packet_length);
 #endif
 	} else {
 		/* error ... */
@@ -802,20 +762,12 @@ static int smc_rcv(struct eth_device *dev)
 		udelay(1); /* Wait until not busy */
 
 	/* restore saved registers */
-#ifndef CONFIG_XAENIAX
 	SMC_outb( dev, saved_pnr, PN_REG );
-#else
-	/* On Xaeniax board, we can't use SMC_outb here because that way
-	 * the Allocate MMU command will end up written to the command register
-	 * as well, which will lead to a problem.
-	 */
-	SMC_outl( dev, saved_pnr << 16, 0);
-#endif
 	SMC_outw( dev, saved_ptr, PTR_REG );
 
 	if (!is_error) {
 		/* Pass the packet up to the protocol layers. */
-		NetReceive(NetRxPackets[0], packet_length);
+		net_process_received_packet(net_rx_packets[0], packet_length);
 		return packet_length;
 	} else {
 		return 0;
@@ -1006,19 +958,19 @@ static word smc_read_phy_register (struct eth_device *dev, byte phyreg)
 	for (i = 0; i < sizeof bits; ++i) {
 		/* Clock Low - output data */
 		SMC_outw (dev, mii_reg | bits[i], MII_REG);
-		udelay (SMC_PHY_CLOCK_DELAY);
+		udelay(SMC_PHY_CLOCK_DELAY);
 
 
 		/* Clock Hi - input data */
 		SMC_outw (dev, mii_reg | bits[i] | MII_MCLK, MII_REG);
-		udelay (SMC_PHY_CLOCK_DELAY);
+		udelay(SMC_PHY_CLOCK_DELAY);
 		bits[i] |= SMC_inw (dev, MII_REG) & MII_MDI;
 	}
 
 	/* Return to idle state */
 	/* Set clock to low, data to low, and output tristated */
 	SMC_outw (dev, mii_reg, MII_REG);
-	udelay (SMC_PHY_CLOCK_DELAY);
+	udelay(SMC_PHY_CLOCK_DELAY);
 
 	/* Restore original bank select */
 	SMC_SELECT_BANK (dev, oldBank);
@@ -1127,19 +1079,19 @@ static void smc_write_phy_register (struct eth_device *dev, byte phyreg,
 	for (i = 0; i < sizeof bits; ++i) {
 		/* Clock Low - output data */
 		SMC_outw (dev, mii_reg | bits[i], MII_REG);
-		udelay (SMC_PHY_CLOCK_DELAY);
+		udelay(SMC_PHY_CLOCK_DELAY);
 
 
 		/* Clock Hi - input data */
 		SMC_outw (dev, mii_reg | bits[i] | MII_MCLK, MII_REG);
-		udelay (SMC_PHY_CLOCK_DELAY);
+		udelay(SMC_PHY_CLOCK_DELAY);
 		bits[i] |= SMC_inw (dev, MII_REG) & MII_MDI;
 	}
 
 	/* Return to idle state */
 	/* Set clock to low, data to low, and output tristated */
 	SMC_outw (dev, mii_reg, MII_REG);
-	udelay (SMC_PHY_CLOCK_DELAY);
+	udelay(SMC_PHY_CLOCK_DELAY);
 
 	/* Restore original bank select */
 	SMC_SELECT_BANK (dev, oldBank);

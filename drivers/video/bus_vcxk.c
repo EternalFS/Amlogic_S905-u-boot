@@ -1,12 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2005-2009
  * Jens Scharsig @ BuS Elektronik GmbH & Co. KG, <esw@bus-elektronik.de>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <bmp_layout.h>
+#include <log.h>
 #include <asm/io.h>
 
 vu_char  *vcxk_bws      = ((vu_char *) (CONFIG_SYS_VCXK_BASE));
@@ -358,7 +358,7 @@ void vcxk_draw_mono(unsigned char *dataptr, unsigned long linewidth,
 
 int vcxk_display_bitmap(ulong addr, int x, int y)
 {
-	bmp_image_t *bmp;
+	struct bmp_image *bmp;
 	unsigned long width;
 	unsigned long height;
 	unsigned long bpp;
@@ -369,7 +369,7 @@ int vcxk_display_bitmap(ulong addr, int x, int y)
 	unsigned long c_height;
 	unsigned char *dataptr;
 
-	bmp = (bmp_image_t *) addr;
+	bmp = (struct bmp_image *)addr;
 	if ((bmp->header.signature[0] == 'B') &&
 	    (bmp->header.signature[1] == 'M')) {
 		width        = le32_to_cpu(bmp->header.width);

@@ -1,18 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2008-2011 Freescale Semiconductor, Inc.
  *
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <asm/bitops.h>
 #include <asm/processor.h>
 #include <asm/mmu.h>
 #ifdef CONFIG_ADDR_MAP
 #include <addr_map.h>
 #endif
+
+#include <linux/log2.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 

@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2011 Freescale Semiconductor, Inc.
  * Author: Mingkai Hu <Mingkai.hu@freescale.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -14,12 +13,13 @@
  */
 
 #include <common.h>
+#include <net.h>
 #include <netdev.h>
 #include <asm/fsl_serdes.h>
 #include <fm_eth.h>
 #include <fsl_mdio.h>
 #include <malloc.h>
-#include <asm/fsl_dtsec.h>
+#include <fsl_dtsec.h>
 
 #include "cpld.h"
 #include "../common/fman.h"

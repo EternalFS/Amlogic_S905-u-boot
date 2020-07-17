@@ -1,12 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2014 Freescale Semiconductor, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
+ * Copyright 2020 NXP
  */
 
 #include <common.h>
 #include <command.h>
+#include <env.h>
+#include <fdt_support.h>
 #include <i2c.h>
+#include <image.h>
+#include <init.h>
+#include <log.h>
 #include <netdev.h>
 #include <linux/compiler.h>
 #include <asm/mmu.h>
@@ -15,14 +20,13 @@
 #include <asm/immap_85xx.h>
 #include <asm/fsl_law.h>
 #include <asm/fsl_serdes.h>
-#include <asm/fsl_portals.h>
 #include <asm/fsl_liodn.h>
 #include <fm_eth.h>
 #include <hwconfig.h>
-#include <asm/mpc85xx_gpio.h>
 #include "../common/qixis.h"
 #include "t102xqds.h"
 #include "t102xqds_qixis.h"
+#include "../common/sleep.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -74,11 +78,24 @@ int checkboard(void)
 	return 0;
 }
 
-int select_i2c_ch_pca9547(u8 ch)
+int select_i2c_ch_pca9547(u8 ch, int bus_num)
 {
 	int ret;
+#ifdef CONFIG_DM_I2C
+	struct udevice *dev;
 
+	ret = i2c_get_chip_for_busnum(bus_num, I2C_MUX_PCA_ADDR_PRI,
+				      1, &dev);
+	if (ret) {
+		printf("%s: Cannot find udev for a bus %d\n", __func__,
+		       bus_num);
+		return ret;
+	}
+
+	ret = dm_i2c_write(dev, 0, &ch, 1);
+#else
 	ret = i2c_write(I2C_MUX_PCA_ADDR_PRI, 0, 1, &ch, 1);
+#endif
 	if (ret) {
 		puts("PCA: failed to select proper channel\n");
 		return ret;
@@ -153,7 +170,7 @@ static int board_mux_lane_to_slot(void)
 	return 0;
 }
 
-#ifdef CONFIG_PPC_T1024
+#ifdef CONFIG_ARCH_T1024
 static void board_mux_setup(void)
 {
 	u8 brdcfg15;
@@ -190,6 +207,82 @@ void board_retimer_ds125df111_init(void)
 {
 	u8 reg;
 
+#ifdef CONFIG_DM_I2C
+	struct udevice *dev;
+	int ret, bus_num = 0;
+
+	ret = i2c_get_chip_for_busnum(bus_num, I2C_MUX_PCA_ADDR_PRI,
+				      1, &dev);
+	if (ret)
+		goto failed;
+
+	/* Retimer DS125DF111 is connected to I2C1_CH7_CH5 */
+	reg = I2C_MUX_CH7;
+	dm_i2c_write(dev, 0, &reg, 1);
+
+	ret = i2c_get_chip_for_busnum(bus_num, I2C_MUX_PCA_ADDR_SEC,
+				      1, &dev);
+	if (ret)
+		goto failed;
+
+	reg = I2C_MUX_CH5;
+	dm_i2c_write(dev, 0, &reg, 1);
+
+	/* Access to Control/Shared register */
+	ret = i2c_get_chip_for_busnum(bus_num, I2C_RETIMER_ADDR,
+				      1, &dev);
+	if (ret)
+		goto failed;
+	reg = 0x0;
+	dm_i2c_write(dev, 0xff, &reg, 1);
+
+	/* Read device revision and ID */
+	dm_i2c_read(dev, 1, &reg, 1);
+	debug("Retimer version id = 0x%x\n", reg);
+
+	/* Enable Broadcast */
+	reg = 0x0c;
+	dm_i2c_write(dev, 0xff, &reg, 1);
+
+	/* Reset Channel Registers */
+	dm_i2c_read(dev, 0, &reg, 1);
+	reg |= 0x4;
+	dm_i2c_write(dev, 0, &reg, 1);
+
+	/* Enable override divider select and Enable Override Output Mux */
+	dm_i2c_read(dev, 9, &reg, 1);
+	reg |= 0x24;
+	dm_i2c_write(dev, 9, &reg, 1);
+
+	/* Select VCO Divider to full rate (000) */
+	dm_i2c_read(dev, 0x18, &reg, 1);
+	reg &= 0x8f;
+	dm_i2c_write(dev, 0x18, &reg, 1);
+
+	/* Select active PFD MUX input as re-timed data (001) */
+	dm_i2c_read(dev, 0x1e, &reg, 1);
+	reg &= 0x3f;
+	reg |= 0x20;
+	dm_i2c_write(dev, 0x1e, &reg, 1);
+
+	/* Set data rate as 10.3125 Gbps */
+	reg = 0x0;
+	dm_i2c_write(dev, 0x60, &reg, 1);
+	reg = 0xb2;
+	dm_i2c_write(dev, 0x61, &reg, 1);
+	reg = 0x90;
+	dm_i2c_write(dev, 0x62, &reg, 1);
+	reg = 0xb3;
+	dm_i2c_write(dev, 0x63, &reg, 1);
+	reg = 0xcd;
+	dm_i2c_write(dev, 0x64, &reg, 1);
+	return;
+
+failed:
+	printf("%s: Cannot find udev for a bus %d\n", __func__,
+	       bus_num);
+	return;
+#else
 	/* Retimer DS125DF111 is connected to I2C1_CH7_CH5 */
 	reg = I2C_MUX_CH7;
 	i2c_write(I2C_MUX_PCA_ADDR_PRI, 0, 1, &reg, 1);
@@ -240,6 +333,17 @@ void board_retimer_ds125df111_init(void)
 	i2c_write(I2C_RETIMER_ADDR, 0x63, 1, &reg, 1);
 	reg = 0xcd;
 	i2c_write(I2C_RETIMER_ADDR, 0x64, 1, &reg, 1);
+#endif
+}
+
+int board_early_init_f(void)
+{
+#if defined(CONFIG_DEEP_SLEEP)
+	if (is_warm_boot())
+		fsl_dp_disable_console();
+#endif
+
+	return 0;
 }
 
 int board_early_init_r(void)
@@ -270,11 +374,7 @@ int board_early_init_r(void)
 		MAS3_SX|MAS3_SW|MAS3_SR, MAS2_I|MAS2_G,
 		0, flash_esel, BOOKE_PAGESZ_256M, 1);
 #endif
-	set_liodns();
-#ifdef CONFIG_SYS_DPAA_QBMAN
-	setup_portals();
-#endif
-	select_i2c_ch_pca9547(I2C_MUX_CH_DEFAULT);
+	select_i2c_ch_pca9547(I2C_MUX_CH_DEFAULT, 0);
 	board_mux_lane_to_slot();
 	board_retimer_ds125df111_init();
 
@@ -327,7 +427,7 @@ unsigned long get_board_ddr_clk(void)
 #define NUM_SRDS_PLL	2
 int misc_init_r(void)
 {
-#ifdef CONFIG_PPC_T1024
+#ifdef CONFIG_ARCH_T1024
 	board_mux_setup();
 #endif
 	return 0;
@@ -358,8 +458,8 @@ int ft_board_setup(void *blob, bd_t *bd)
 
 	ft_cpu_setup(blob, bd);
 
-	base = getenv_bootm_low();
-	size = getenv_bootm_size();
+	base = env_get_bootm_low();
+	size = env_get_bootm_size();
 
 	fdt_fixup_memory(blob, (u64)base, (u64)size);
 
@@ -370,11 +470,13 @@ int ft_board_setup(void *blob, bd_t *bd)
 	fdt_fixup_liodn(blob);
 
 #ifdef CONFIG_HAS_FSL_DR_USB
-	fdt_fixup_dr_usb(blob, bd);
+	fsl_fdt_fixup_dr_usb(blob, bd);
 #endif
 
 #ifdef CONFIG_SYS_DPAA_FMAN
+#ifndef CONFIG_DM_ETH
 	fdt_fixup_fman_ethernet(blob);
+#endif
 	fdt_fixup_board_enet(blob);
 #endif
 	fdt_fixup_spi_mux(blob);
@@ -395,14 +497,3 @@ void qixis_dump_switch(void)
 		printf("SW%d = (0x%02x)\n", i, QIXIS_READ(cms[1]));
 	}
 }
-
-#ifdef CONFIG_DEEP_SLEEP
-void board_mem_sleep_setup(void)
-{
-	/* does not provide HW signals for power management */
-	QIXIS_WRITE(pwr_ctl[1], (QIXIS_READ(pwr_ctl[1]) & ~0x2));
-	/* Disable MCKE isolation */
-	gpio_set_value(2, 0);
-	udelay(1);
-}
-#endif

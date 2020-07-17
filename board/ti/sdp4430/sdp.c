@@ -1,12 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2010
  * Texas Instruments Incorporated, <www.ti.com>
  * Aneesh V       <aneesh@ti.com>
  * Steve Sakoman  <steve@sakoman.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 #include <common.h>
+#include <init.h>
+#include <net.h>
 #include <twl6030.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/arch/mmc_host_def.h>
@@ -53,7 +54,7 @@ int misc_init_r(void)
 	return 0;
 }
 
-void set_muxconf_regs_essential(void)
+void set_muxconf_regs(void)
 {
 	do_set_mux((*ctrl)->control_padconf_core_base,
 		   core_padconf_array_essential,
@@ -73,13 +74,21 @@ void set_muxconf_regs_essential(void)
 				 sizeof(struct pad_conf_entry));
 }
 
-#if !defined(CONFIG_SPL_BUILD) && defined(CONFIG_GENERIC_MMC)
+#if defined(CONFIG_MMC)
 int board_mmc_init(bd_t *bis)
 {
 	omap_mmc_init(0, 0, 0, -1, -1);
 	omap_mmc_init(1, 0, 0, -1, -1);
 	return 0;
 }
+
+#if !defined(CONFIG_SPL_BUILD)
+void board_mmc_power_init(void)
+{
+	twl6030_power_mmc_init(0);
+	twl6030_power_mmc_init(1);
+}
+#endif
 #endif
 
 /*

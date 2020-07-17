@@ -1,15 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2008-2012 Freescale Semiconductor, Inc.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * Version 2 as published by the Free Software Foundation.
+ * Copyright 2008-2020 Freescale Semiconductor, Inc.
  */
 
 #include <common.h>
+#include <log.h>
 #include <asm/io.h>
 #include <fsl_ddr_sdram.h>
 #include <asm/processor.h>
+#include <linux/delay.h>
 
 #if (CONFIG_CHIP_SELECTS_PER_CTRL > 4)
 #error Invalid setting for CONFIG_CHIP_SELECTS_PER_CTRL
@@ -41,22 +40,31 @@ void fsl_ddr_set_memctl_regs(const fsl_ddr_cfg_regs_t *regs,
 #ifdef CONFIG_SYS_FSL_ERRATUM_DDR_A003
 	u32 save1, save2;
 #endif
+#if defined(CONFIG_SYS_FSL_ERRATUM_A009942) || \
+	(defined(CONFIG_SYS_FSL_ERRATUM_A008378) && \
+	defined(CONFIG_SYS_FSL_DDRC_GEN4)) || \
+	defined(CONFIG_SYS_FSL_ERRATUM_A008109)
+	u32 val32;
+#endif
+#ifdef CONFIG_SYS_FSL_ERRATUM_A009942
+	unsigned int ddr_freq;
+#endif
 
 	switch (ctrl_num) {
 	case 0:
 		ddr = (void *)CONFIG_SYS_FSL_DDR_ADDR;
 		break;
-#if defined(CONFIG_SYS_FSL_DDR2_ADDR) && (CONFIG_NUM_DDR_CONTROLLERS > 1)
+#if defined(CONFIG_SYS_FSL_DDR2_ADDR) && (CONFIG_SYS_NUM_DDR_CTLRS > 1)
 	case 1:
 		ddr = (void *)CONFIG_SYS_FSL_DDR2_ADDR;
 		break;
 #endif
-#if defined(CONFIG_SYS_FSL_DDR3_ADDR) && (CONFIG_NUM_DDR_CONTROLLERS > 2)
+#if defined(CONFIG_SYS_FSL_DDR3_ADDR) && (CONFIG_SYS_NUM_DDR_CTLRS > 2)
 	case 2:
 		ddr = (void *)CONFIG_SYS_FSL_DDR3_ADDR;
 		break;
 #endif
-#if defined(CONFIG_SYS_FSL_DDR4_ADDR) && (CONFIG_NUM_DDR_CONTROLLERS > 3)
+#if defined(CONFIG_SYS_FSL_DDR4_ADDR) && (CONFIG_SYS_NUM_DDR_CTLRS > 3)
 	case 3:
 		ddr = (void *)CONFIG_SYS_FSL_DDR4_ADDR;
 		break;
@@ -176,9 +184,6 @@ void fsl_ddr_set_memctl_regs(const fsl_ddr_cfg_regs_t *regs,
 			out_be32(&ddr->debug[i], regs->debug[i]);
 		}
 	}
-#ifdef CONFIG_SYS_FSL_ERRATUM_A_004934
-	out_be32(&ddr->debug[28], 0x30003000);
-#endif
 
 #ifdef CONFIG_SYS_FSL_ERRATUM_DDR_A003474
 	out_be32(&ddr->debug[12], 0x00000015);
@@ -342,6 +347,49 @@ step2:
 
 	}
 #endif
+
+#if defined(CONFIG_SYS_FSL_ERRATUM_A008378) && defined(CONFIG_SYS_FSL_DDRC_GEN4)
+	/* Erratum applies when accumulated ECC is used, or DBI is enabled */
+#define IS_ACC_ECC_EN(v) ((v) & 0x4)
+#define IS_DBI(v) ((((v) >> 12) & 0x3) == 0x2)
+	if (has_erratum_a008378()) {
+		if (IS_ACC_ECC_EN(regs->ddr_sdram_cfg) ||
+		    IS_DBI(regs->ddr_sdram_cfg_3)) {
+			val32 = ddr_in32(&ddr->debug[28]);
+			val32 |= (0x9 << 20);
+			ddr_out32(&ddr->debug[28], val32);
+		}
+		debug("Applied errata CONFIG_SYS_FSL_ERRATUM_A008378\n");
+	}
+#endif
+
+#if defined(CONFIG_SYS_FSL_ERRATUM_A008109)
+	val32 = in_be32(&ddr->sdram_cfg_2) | 0x800; /* DDR_SLOW */
+	out_be32(&ddr->sdram_cfg_2, val32);
+
+	val32 = in_be32(&ddr->debug[18]) | 0x2;
+	out_be32(&ddr->debug[18], val32);
+
+	out_be32(&ddr->debug[28], 0x30000000);
+	debug("Applied errta CONFIG_SYS_FSL_ERRATUM_A008109\n");
+#endif
+
+#ifdef CONFIG_SYS_FSL_ERRATUM_A009942
+	ddr_freq = get_ddr_freq(ctrl_num) / 1000000;
+	val32 = in_be32(&ddr->debug[28]);
+	val32 &= 0xff0fff00;
+	if (ddr_freq <= 1333)
+		val32 |= 0x0080006a;
+	else if (ddr_freq <= 1600)
+		val32 |= 0x0070006f;
+	else if (ddr_freq <= 1867)
+		val32 |= 0x00700076;
+	else if (ddr_freq <= 2133)
+		val32 |= 0x0060007b;
+
+	out_be32(&ddr->debug[28], val32);
+	debug("Applied errata CONFIG_SYS_FSL_ERRATUM_A009942\n");
+#endif
 	/*
 	 * For 8572 DDR1 erratum - DDR controller may enter illegal state
 	 * when operatiing in 32-bit bus mode with 4-beat bursts,
@@ -426,7 +474,7 @@ step2:
 	bus_width = 3 - ((ddr->sdram_cfg & SDRAM_CFG_DBW_MASK)
 			>> SDRAM_CFG_DBW_SHIFT);
 	timeout = ((total_gb_size_per_controller << (6 - bus_width)) * 100 /
-		(get_ddr_freq(0) >> 20)) << 1;
+		(get_ddr_freq(ctrl_num) >> 20)) << 1;
 #ifdef CONFIG_SYS_FSL_ERRATUM_DDR111_DDR134
 	timeout_save = timeout;
 #endif
@@ -538,12 +586,14 @@ step2:
 		case 1:
 			out_be32(&ddr->cs1_bnds, regs->cs[csn].bnds);
 			break;
+#if CONFIG_CHIP_SELECTS_PER_CTRL > 2
 		case 2:
 			out_be32(&ddr->cs2_bnds, regs->cs[csn].bnds);
 			break;
 		case 3:
 			out_be32(&ddr->cs3_bnds, regs->cs[csn].bnds);
 			break;
+#endif
 		}
 		clrbits_be32(&ddr->sdram_cfg, 0x2);
 	}

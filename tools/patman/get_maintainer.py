@@ -1,11 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0+
 # Copyright (c) 2012 The Chromium OS Authors.
 #
-# SPDX-License-Identifier:	GPL-2.0+
-#
 
-import command
-import gitutil
 import os
+
+from patman import command
+from patman import gitutil
 
 def FindGetMaintainer():
     """Look for the get_maintainer.pl script.
@@ -40,8 +40,9 @@ def GetMaintainer(fname, verbose=False):
     get_maintainer = FindGetMaintainer()
     if not get_maintainer:
         if verbose:
-            print "WARNING: Couldn't find get_maintainer.pl"
+            print("WARNING: Couldn't find get_maintainer.pl")
         return []
 
     stdout = command.Output(get_maintainer, '--norolestats', fname)
-    return stdout.splitlines()
+    lines = stdout.splitlines()
+    return [ x.replace('"', '') for x in lines ]

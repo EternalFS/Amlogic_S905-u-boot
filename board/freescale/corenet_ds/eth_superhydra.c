@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2009-2011 Freescale Semiconductor, Inc.
  * Author: Srikanth Srinivasan <srikanth.srinivasan@freescale.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -49,13 +48,15 @@
  */
 
 #include <common.h>
+#include <log.h>
+#include <net.h>
 #include <netdev.h>
 #include <asm/fsl_serdes.h>
 #include <fm_eth.h>
 #include <fsl_mdio.h>
 #include <malloc.h>
 #include <fdt_support.h>
-#include <asm/fsl_dtsec.h>
+#include <fsl_dtsec.h>
 
 #include "../common/ngpixis.h"
 #include "../common/fman.h"
@@ -175,7 +176,7 @@ static int super_hydra_mdio_init(char *realbusname, char *fakebusname)
 	bus->read = super_hydra_mdio_read;
 	bus->write = super_hydra_mdio_write;
 	bus->reset = super_hydra_mdio_reset;
-	sprintf(bus->name, fakebusname);
+	strcpy(bus->name, fakebusname);
 
 	hmdio->realbus = miiphy_get_dev_by_name(realbusname);
 

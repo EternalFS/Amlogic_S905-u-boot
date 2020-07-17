@@ -39,8 +39,10 @@
  */
 #include <common.h>
 #include <command.h>
+#include <log.h>
 #include <net.h>
 #include <malloc.h>
+#include <linux/delay.h>
 #include <linux/mii.h>
 #include "ax88180.h"
 
@@ -117,7 +119,7 @@ static int ax88180_phy_reset (struct eth_device *dev)
 
 	/* Wait for the reset to complete, or time out (500 ms) */
 	while (ax88180_mdio_read (dev, MII_BMCR) & BMCR_RESET) {
-		udelay (1000);
+		udelay(1000);
 		if (--delay_cnt == 0) {
 			printf ("Failed to reset PHY!\n");
 			return -1;
@@ -176,7 +178,7 @@ static int ax88180_poll_tx_complete (struct eth_device *dev)
 		if ((tmpval & txbs_txdp) == 0)
 			break;
 
-		udelay (100);
+		udelay(100);
 	}
 
 	if (TimeOutCnt)
@@ -192,9 +194,9 @@ static void ax88180_rx_handler (struct eth_device *dev)
 	unsigned short rxcurt_ptr, rxbound_ptr, next_ptr;
 	int i;
 #if defined (CONFIG_DRIVER_AX88180_16BIT)
-	unsigned short *rxdata = (unsigned short *)NetRxPackets[0];
+	unsigned short *rxdata = (unsigned short *)net_rx_packets[0];
 #else
-	unsigned long *rxdata = (unsigned long *)NetRxPackets[0];
+	unsigned long *rxdata = (unsigned long *)net_rx_packets[0];
 #endif
 	unsigned short count;
 
@@ -237,7 +239,7 @@ static void ax88180_rx_handler (struct eth_device *dev)
 		OUTW (dev, RX_STOP_READ, RXINDICATOR);
 
 		/* Pass the packet up to the protocol layers. */
-		NetReceive (NetRxPackets[0], data_size);
+		net_process_received_packet(net_rx_packets[0], data_size);
 
 		OUTW (dev, rxbound_ptr, RXBOUND);
 
@@ -341,7 +343,7 @@ static void ax88180_media_config (struct eth_device *dev)
 		if (bmsr_val & BMSR_LSTATUS) {
 			break;
 		}
-		udelay (100);
+		udelay(100);
 	}
 
 	bmsr_val = ax88180_mdio_read (dev, MII_BMSR);
@@ -363,7 +365,7 @@ static void ax88180_media_config (struct eth_device *dev)
 				if (bmsr_val & BMSR_ANEGCOMPLETE) {
 					break;
 				}
-				udelay (100);
+				udelay(100);
 			}
 		} else
 			debug ("ax88180: Auto-negotiation is disabled.\n");
@@ -679,7 +681,7 @@ static void ax88180_read_mac_addr (struct eth_device *dev)
 		tmp_regval = INW (dev, PROMCTRL);
 		if ((tmp_regval & RELOAD_EEPROM) == 0)
 			break;
-		udelay (1000);
+		udelay(1000);
 	}
 
 	/* Get MAC addresses */
@@ -698,11 +700,7 @@ static void ax88180_read_mac_addr (struct eth_device *dev)
 	}
 }
 
-/*
-===========================================================================
-<<<<<<			Exported SubProgram Bodies		>>>>>>
-===========================================================================
-*/
+/* Exported SubProgram Bodies */
 int ax88180_initialize (bd_t * bis)
 {
 	struct eth_device *dev;
@@ -722,7 +720,7 @@ int ax88180_initialize (bd_t * bis)
 
 	memset (priv, 0, sizeof *priv);
 
-	sprintf (dev->name, "ax88180");
+	strcpy(dev->name, "ax88180");
 	dev->iobase = AX88180_BASE;
 	dev->priv = priv;
 	dev->init = ax88180_init;

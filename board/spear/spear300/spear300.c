@@ -1,16 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2009
  * Vipin Kumar, ST Micoelectronics, vipin.kumar@st.com.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <miiphy.h>
+#include <net.h>
 #include <netdev.h>
 #include <nand.h>
 #include <asm/io.h>
 #include <linux/mtd/fsmc_nand.h>
+#include <asm/mach-types.h>
 #include <asm/arch/hardware.h>
 #include <asm/arch/spr_defs.h>
 #include <asm/arch/spr_misc.h>
@@ -51,7 +52,7 @@ int board_eth_init(bd_t *bis)
 {
 	int ret = 0;
 
-#if defined(CONFIG_DESIGNWARE_ETH)
+#if defined(CONFIG_ETH_DESIGNWARE)
 	u32 interface = PHY_INTERFACE_MODE_MII;
 	if (designware_initialize(CONFIG_SPEAR_ETHBASE, interface) >= 0)
 		ret++;

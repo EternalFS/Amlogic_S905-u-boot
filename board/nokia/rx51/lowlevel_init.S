@@ -1,8 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2011-2012
- * Pali Rohár <pali.rohar@gmail.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
+ * Pali Rohár <pali@kernel.org>
  */
 
 #include <config.h>
@@ -37,7 +36,8 @@ ih_magic:		/* IH_MAGIC in big endian from include/image.h */
 
 .global save_boot_params
 save_boot_params:
-
+	/* Get return address */
+	ldr	lr, =save_boot_params_ret
 
 /* Copy valid attached kernel to address KERNEL_ADDRESS */
 
@@ -104,10 +104,6 @@ fix_start:
 	/* r6 - maximal u-boot size */
 	ldr	r6, imagesize
 
-	/* fix return address */
-	subhi	lr, lr, r5
-	addlo	lr, lr, r5
-
 	/* r1 - start of u-boot after */
 	ldr	r1, startaddr
 
@@ -159,7 +155,14 @@ copy_code_end:
 	mov	pc, r2
 
 
-/* Copy u-boot to address CONFIG_SYS_TEXT_BASE */
+/*
+ * Copy u-boot to address CONFIG_SYS_TEXT_BASE
+ *
+ * Nokia X-Loader loading secondary image to address 0x80400000
+ * NOLO loading boot image to random place, so it doesn't really
+ * matter what is set in CONFIG_SYS_TEXT_BASE. We have to copy
+ * u-boot to CONFIG_SYS_TEXT_BASE address.
+ */
 
 copy_uboot_start:
 	/* r0 - start of u-boot before */

@@ -1,12 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2013 Freescale Semiconductor, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
+ * Copyright 2020 NXP
  */
 
 #include <common.h>
 #include <command.h>
+#include <env.h>
+#include <fdt_support.h>
 #include <i2c.h>
+#include <image.h>
+#include <init.h>
 #include <netdev.h>
 #include <linux/compiler.h>
 #include <asm/mmu.h>
@@ -15,12 +19,11 @@
 #include <asm/immap_85xx.h>
 #include <asm/fsl_law.h>
 #include <asm/fsl_serdes.h>
-#include <asm/fsl_portals.h>
 #include <asm/fsl_liodn.h>
 #include <fm_eth.h>
 #include <hwconfig.h>
-#include <asm/mpc85xx_gpio.h>
 
+#include "../common/sleep.h"
 #include "../common/qixis.h"
 #include "t1040qds.h"
 #include "t1040qds_qixis.h"
@@ -78,11 +81,24 @@ int checkboard(void)
 	return 0;
 }
 
-int select_i2c_ch_pca9547(u8 ch)
+int select_i2c_ch_pca9547(u8 ch, int bus_num)
 {
 	int ret;
 
+#ifdef CONFIG_DM_I2C
+	struct udevice *dev;
+
+	ret = i2c_get_chip_for_busnum(bus_num, I2C_MUX_PCA_ADDR_PRI, 1, &dev);
+	if (ret) {
+		printf("%s: Cannot find udev for a bus %d\n", __func__,
+		       bus_num);
+		return ret;
+	}
+
+	ret = dm_i2c_write(dev, 0, &ch, 1);
+#else
 	ret = i2c_write(I2C_MUX_PCA_ADDR_PRI, 0, 1, &ch, 1);
+#endif
 	if (ret) {
 		puts("PCA: failed to select proper channel\n");
 		return ret;
@@ -115,6 +131,16 @@ static void qe_board_setup(void)
 	}
 }
 
+int board_early_init_f(void)
+{
+#if defined(CONFIG_DEEP_SLEEP)
+	if (is_warm_boot())
+		fsl_dp_disable_console();
+#endif
+
+	return 0;
+}
+
 int board_early_init_r(void)
 {
 #ifdef CONFIG_SYS_FLASH_BASE
@@ -143,11 +169,7 @@ int board_early_init_r(void)
 		MAS3_SX|MAS3_SW|MAS3_SR, MAS2_I|MAS2_G,
 		0, flash_esel, BOOKE_PAGESZ_256M, 1);
 #endif
-	set_liodns();
-#ifdef CONFIG_SYS_DPAA_QBMAN
-	setup_portals();
-#endif
-	select_i2c_ch_pca9547(I2C_MUX_CH_DEFAULT);
+	select_i2c_ch_pca9547(I2C_MUX_CH_DEFAULT, 0);
 
 	return 0;
 }
@@ -240,8 +262,8 @@ int ft_board_setup(void *blob, bd_t *bd)
 
 	ft_cpu_setup(blob, bd);
 
-	base = getenv_bootm_low();
-	size = getenv_bootm_size();
+	base = env_get_bootm_low();
+	size = env_get_bootm_size();
 
 	fdt_fixup_memory(blob, (u64)base, (u64)size);
 
@@ -252,11 +274,13 @@ int ft_board_setup(void *blob, bd_t *bd)
 	fdt_fixup_liodn(blob);
 
 #ifdef CONFIG_HAS_FSL_DR_USB
-	fdt_fixup_dr_usb(blob, bd);
+	fsl_fdt_fixup_dr_usb(blob, bd);
 #endif
 
 #ifdef CONFIG_SYS_DPAA_FMAN
+#ifndef CONFIG_DM_ETH
 	fdt_fixup_fman_ethernet(blob);
+#endif
 	fdt_fixup_board_enet(blob);
 #endif
 
@@ -281,14 +305,3 @@ int board_need_mem_reset(void)
 {
 	return 1;
 }
-
-#ifdef CONFIG_DEEP_SLEEP
-void board_mem_sleep_setup(void)
-{
-	/* does not provide HW signals for power management */
-	QIXIS_WRITE(pwr_ctl[1], (QIXIS_READ(pwr_ctl[1]) & ~0x2));
-	/* Disable MCKE isolation */
-	gpio_set_value(2, 0);
-	udelay(1);
-}
-#endif
