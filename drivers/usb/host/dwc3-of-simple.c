@@ -12,6 +12,7 @@
 
 #include <common.h>
 #include <dm.h>
+#include <fdtdec.h>
 #include <reset.h>
 #include <clk.h>
 

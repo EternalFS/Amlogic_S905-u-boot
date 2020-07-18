@@ -15,12 +15,10 @@
 
 #include <common.h>
 #include <cpu_func.h>
-#include <log.h>
 #include <malloc.h>
 #include <dm/device_compat.h>
 #include <dm/devres.h>
 #include <linux/bug.h>
-#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/list.h>
 

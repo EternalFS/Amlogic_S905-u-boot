@@ -241,13 +241,11 @@
 
 #include <config.h>
 #include <hexdump.h>
-#include <log.h>
 #include <malloc.h>
 #include <common.h>
 #include <console.h>
 #include <g_dnl.h>
 #include <dm/devres.h>
-#include <linux/bug.h>
 
 #include <linux/err.h>
 #include <linux/usb/ch9.h>

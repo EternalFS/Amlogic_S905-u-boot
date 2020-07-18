@@ -2,7 +2,6 @@
 #define __LINUX_COMPAT_H__
 
 #include <malloc.h>
-#include <linux/delay.h>
 #include <linux/list.h>
 #include <linux/compat.h>
 

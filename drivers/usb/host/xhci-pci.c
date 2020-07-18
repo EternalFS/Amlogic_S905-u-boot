@@ -7,8 +7,6 @@
 
 #include <common.h>
 #include <dm.h>
-#include <init.h>
-#include <log.h>
 #include <pci.h>
 #include <usb.h>
 #include <usb/xhci.h>

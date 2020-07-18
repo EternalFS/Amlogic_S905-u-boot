@@ -23,7 +23,6 @@
 #else
 #include <common.h>
 #include <usb.h>
-#include <linux/bug.h>
 #include "linux-compat.h"
 #include "usb-compat.h"
 #endif

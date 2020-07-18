@@ -8,7 +8,6 @@
 #include <common.h>
 #include <clk.h>
 #include <dm.h>
-#include <log.h>
 #include <malloc.h>
 #include <usb.h>
 #include <asm/io.h>

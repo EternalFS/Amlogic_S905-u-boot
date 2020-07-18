@@ -9,7 +9,6 @@
  */
 
 #include <common.h>
-#include <linux/bitops.h>
 
 #include "musb_core.h"
 struct musb_regs *musbr;

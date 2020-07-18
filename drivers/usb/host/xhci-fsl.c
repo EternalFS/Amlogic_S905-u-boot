@@ -8,7 +8,6 @@
  */
 
 #include <common.h>
-#include <log.h>
 #include <usb.h>
 #include <linux/errno.h>
 #include <linux/compat.h>

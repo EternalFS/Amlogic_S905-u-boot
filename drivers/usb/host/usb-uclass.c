@@ -9,7 +9,6 @@
 #include <common.h>
 #include <dm.h>
 #include <errno.h>
-#include <log.h>
 #include <memalign.h>
 #include <usb.h>
 #include <dm/device-internal.h>

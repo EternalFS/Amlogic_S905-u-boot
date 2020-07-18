@@ -41,7 +41,6 @@
 #include <hang.h>
 #include <serial.h>
 #include <usbdevice.h>
-#include <linux/delay.h>
 #include <usb/udc.h>
 #include "../gadget/ep0.h"
 #include "musb_core.h"

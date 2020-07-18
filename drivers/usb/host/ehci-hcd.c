@@ -10,9 +10,7 @@
 #include <cpu_func.h>
 #include <dm.h>
 #include <errno.h>
-#include <log.h>
 #include <asm/byteorder.h>
-#include <asm/cache.h>
 #include <asm/unaligned.h>
 #include <usb.h>
 #include <asm/io.h>
@@ -21,7 +19,6 @@
 #include <watchdog.h>
 #include <dm/device_compat.h>
 #include <linux/compiler.h>
-#include <linux/delay.h>
 
 #include "ehci.h"
 
@@ -1416,10 +1413,13 @@ static struct int_queue *_ehci_create_int_queue(struct usb_device *dev,
 	debug("Exit create_int_queue\n");
 	return result;
 fail3:
-	free(result->tds);
+	if (result->tds)
+		free(result->tds);
 fail2:
-	free(result->first);
-	free(result);
+	if (result->first)
+		free(result->first);
+	if (result)
+		free(result);
 fail1:
 	return NULL;
 }
