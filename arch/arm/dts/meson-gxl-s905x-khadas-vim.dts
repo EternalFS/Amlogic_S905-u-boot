@@ -33,9 +33,11 @@
 
 	gpio-keys-polled {
 		compatible = "gpio-keys-polled";
+		#address-cells = <1>;
+		#size-cells = <0>;
 		poll-interval = <100>;
 
-		power-button {
+		button@0 {
 			label = "power";
 			linux,code = <KEY_POWER>;
 			gpios = <&gpio_ao GPIOAO_2 GPIO_ACTIVE_LOW>;
@@ -108,10 +110,10 @@
 };
 
 &ir {
-	linux,rc-map-name = "rc-khadas";
+	linux,rc-map-name = "rc-geekbox";
 };
 
-&gpio_ao {
+&pinctrl_aobus {
 	gpio-line-names = "UART TX",
 			  "UART RX",
 			  "Power Key In",
@@ -126,7 +128,7 @@
 			  "";
 };
 
-&gpio {
+&pinctrl_periphs {
 	gpio-line-names = /* Bank GPIOZ */
 			  "", "", "", "", "", "", "",
 			  "", "", "", "", "", "", "",
@@ -183,16 +185,6 @@
 	brcmf: wifi@1 {
 		reg = <1>;
 		compatible = "brcm,bcm4329-fmac";
-	};
-};
-
-&uart_A {
-	bluetooth {
-		compatible = "brcm,bcm43438-bt";
-		shutdown-gpios = <&gpio GPIOX_17 GPIO_ACTIVE_HIGH>;
-		max-speed = <2000000>;
-		clocks = <&wifi32k>;
-		clock-names = "lpo";
 	};
 };
 

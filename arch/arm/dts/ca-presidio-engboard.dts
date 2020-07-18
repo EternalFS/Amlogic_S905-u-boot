@@ -10,9 +10,11 @@
    #size-cells = <1>;
 
 	mmc0: mmc@f4400000 {
-		compatible = "cortina,ca-mmc";
+		compatible = "snps,dw-cortina";
 		reg = <0x0 0xf4400000 0x1000>;
 		bus-width = <4>;
+		io_ds = <0x77>;
+		fifo-mode;
 		sd_dll_ctrl = <0xf43200e8>;
 		io_drv_ctrl = <0xf432004c>;
 	};
